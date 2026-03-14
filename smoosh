@@ -1,0 +1,1947 @@
+#!/usr/bin/env bash
+# smoosh — One command. Every doc. Smooshed.
+# https://github.com/K1-R1/smoosh
+# MIT Licence
+
+set -euo pipefail
+
+readonly VERSION="1.0.0"
+
+# ---------------------------------------------------------------------------
+# Globals — argument variables (set by parse_args, read everywhere)
+# ---------------------------------------------------------------------------
+MODE="docs"         # docs | code | all
+INCLUDE_PATTERNS="" # comma-separated globs (adds to mode extensions)
+ONLY_PATTERNS=""    # comma-separated globs (overrides mode)
+EXCLUDE_PATTERNS="" # comma-separated globs (path filter)
+OUTPUT_DIR=""       # default: _smooshes/ (set via --output-dir)
+MAX_WORDS=450000    # words per chunk
+TOC=false
+LINE_NUMBERS=false
+FORMAT="md" # md | text | xml
+DRY_RUN=false
+QUIET=false
+JSON_OUTPUT=false   # --json flag
+NO_COLOR_FLAG=false # --no-color CLI flag
+NO_CHECK_SECRETS=false
+NO_INTERACTIVE=false # --no-interactive flag
+INCLUDE_HIDDEN=false # --include-hidden flag
+TARGET=""            # path, URL, or empty (cwd)
+
+# Internal signalling variable: set by _parse_filter_flag/_parse_output_flag
+# to tell parse_args how many extra positional args were consumed.
+_SHIFT_EXTRA=0
+
+# Tracked exit code — used by output_json so --json output reflects the true
+# exit status rather than a hardcoded 0.
+EXIT_CODE=0
+
+# Runtime state (populated during execution)
+REPO_ROOT=""
+REPO_NAME=""
+REMOTE_REPO=false # true when target was a remote URL
+USER_CWD=""       # working directory at invocation (for remote output placement)
+CLONE_TEMP_DIR="" # temp dir used for remote clone
+
+# Extension management
+# Space-separated extension lists; split into arrays at runtime.
+readonly DOCS_EXTS="md mdx rst txt adoc asciidoc org tex"
+# shellcheck disable=SC2034  # used by get_extensions_for_mode
+readonly CODE_EXTS_EXTRA="py pyi js jsx ts tsx mjs cjs rs go java kt kts swift \
+  c h cpp hpp cc hh cxx cs rb php scala ex exs hs lua r R sh bash zsh sql \
+  yml yaml toml json xml css scss sass less dart zig vue svelte html htm \
+  pl pm clj cljs cljc edn erl hrl ml mli fs fsx jl nim cr v tf tfvars \
+  proto graphql sol move"
+EFFECTIVE_EXTENSIONS=() # populated by resolve_extensions()
+
+# Pre-computation arrays (populated by batch_ functions)
+# These are indexed arrays; index corresponds to position in FILES array.
+FILES=()
+WORD_COUNTS=()
+MIME_TYPES=()
+CHUNK_ASSIGNMENT=() # populated by compute_chunk_assignments()
+
+# Pre-computed text separator for write_file_entry (text format) — avoids per-file subshell.
+readonly TEXT_SEP="============================================================"
+
+# ---------------------------------------------------------------------------
+# Terminal: colours and symbols
+# ---------------------------------------------------------------------------
+
+# Colour variables — assigned by setup_colours(), used everywhere else.
+RED=""
+YELLOW=""
+DIM=""
+BOLD=""
+RESET=""
+
+# Sunset palette — 256-colour accents, assigned by setup_colours().
+SUN_1="" # Gold/amber — primary accent
+SUN_2="" # Orange — secondary accent
+SUN_3="" # Coral — tertiary accent
+
+setup_colours() {
+  # Precedence: --no-color flag > NO_COLOR env > FORCE_COLOR env > CLICOLOR > TTY
+  if [[ "${NO_COLOR_FLAG}" == "true" ]] || [[ -n "${NO_COLOR-}" ]]; then
+    return 0 # leave all colour vars empty
+  fi
+
+  if [[ -n "${FORCE_COLOR-}" ]] && [[ "${FORCE_COLOR}" != "0" ]]; then
+    # Force colours on — fall through to set them.
+    :
+  elif [[ -n "${CLICOLOR-}" ]] && [[ "${CLICOLOR}" == "0" ]]; then
+    return 0
+  elif [[ ! -t 1 ]]; then
+    return 0 # stdout is not a TTY — no colours
+  fi
+
+  RED=$'\033[31m'
+  YELLOW=$'\033[33m'
+  DIM=$'\033[2m'
+  BOLD=$'\033[1m'
+  RESET=$'\033[0m'
+
+  # 256-colour sunset palette (xterm-256color, iTerm2, VS Code, etc.).
+  if [[ "${TERM-}" == *"256color"* ]] || [[ -n "${COLORTERM-}" ]]; then
+    SUN_1=$'\033[38;5;214m'
+    SUN_2=$'\033[38;5;208m'
+    SUN_3=$'\033[38;5;203m'
+  else
+    SUN_1="${YELLOW}"
+    SUN_2="${YELLOW}"
+    SUN_3="${RED}"
+  fi
+}
+
+# Symbol variables — assigned by setup_symbols().
+SYM_CHECK=""
+SYM_CROSS=""
+SYM_ARROW=""
+SYM_BULLET=""
+SYM_WARN=""
+SYM_TL=""
+SYM_TR=""
+SYM_BL=""
+SYM_BR=""
+SYM_H=""
+SYM_V=""
+SYM_LJ=""
+SYM_RJ=""
+SYM_TJ=""
+SYM_BJ=""
+
+setup_symbols() {
+  # Detect UTF-8 locale. Use $'\xNN' byte sequences (Bash 3.2 compatible).
+  local lc_all="${LC_ALL-}"
+  local lc_ctype="${LC_CTYPE-}"
+  local lang="${LANG-}"
+  local locale_str="${lc_all}${lc_ctype}${lang}"
+
+  if [[ "${locale_str}" == *"UTF-8"* ]] || [[ "${locale_str}" == *"utf-8"* ]] ||
+    [[ "${locale_str}" == *"utf8"* ]]; then
+    # Unicode box-drawing and symbols (UTF-8 multibyte sequences)
+    SYM_CHECK=$'\xe2\x9c\x94'  # ✔
+    SYM_CROSS=$'\xe2\x9c\x96'  # ✖
+    SYM_ARROW=$'\xe2\x86\x92'  # →
+    SYM_BULLET=$'\xe2\x80\xa2' # •
+    SYM_WARN=$'\xe2\x9a\xa0'   # ⚠
+    SYM_TL=$'\xe2\x94\x8c'     # ┌
+    SYM_TR=$'\xe2\x94\x90'     # ┐
+    SYM_BL=$'\xe2\x94\x94'     # └
+    SYM_BR=$'\xe2\x94\x98'     # ┘
+    SYM_H=$'\xe2\x94\x80'      # ─
+    SYM_V=$'\xe2\x94\x82'      # │
+    SYM_LJ=$'\xe2\x94\x9c'     # ├
+    SYM_RJ=$'\xe2\x94\xa4'     # ┤
+    SYM_TJ=$'\xe2\x94\xac'     # ┬
+    SYM_BJ=$'\xe2\x94\xb4'     # ┴
+  else
+    # ASCII fallback
+    SYM_CHECK="v"
+    SYM_CROSS="x"
+    SYM_ARROW="->"
+    SYM_BULLET="*"
+    SYM_WARN="!"
+    SYM_TL="+"
+    SYM_TR="+"
+    SYM_BL="+"
+    SYM_BR="+"
+    SYM_H="-"
+    SYM_V="|"
+    SYM_LJ="+"
+    SYM_RJ="+"
+    SYM_TJ="+"
+    SYM_BJ="+"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Logging — all output to stderr
+# ---------------------------------------------------------------------------
+
+info() {
+  [[ "${QUIET}" == "true" ]] && return 0
+  printf '%s\n' "${*}" >&2
+}
+
+warn() {
+  printf '%b%s %s%b\n' "${YELLOW}" "${SYM_WARN}" "${*}" "${RESET}" >&2
+}
+
+error() {
+  printf '%b%s %s%b\n' "${RED}" "${SYM_CROSS}" "${*}" "${RESET}" >&2
+}
+
+die() {
+  local exit_code="${1}"
+  shift
+  error "${*}"
+  if [[ "${JSON_OUTPUT}" == "true" ]]; then
+    local msg
+    msg="$(json_escape "${*}")"
+    printf '{"error": "%s", "exit_code": %d}\n' "${msg}" "${exit_code}"
+  fi
+  exit "${exit_code}"
+}
+
+# ---------------------------------------------------------------------------
+# Cleanup registry — never overwrite traps, always use register_cleanup.
+# ---------------------------------------------------------------------------
+CLEANUP_ACTIONS=()
+TEMP_FILES=() # temp files registered for deletion on exit
+
+# shellcheck disable=SC2329  # called by phases that register cleanup actions
+register_cleanup() {
+  CLEANUP_ACTIONS+=("${1}")
+}
+
+# shellcheck disable=SC2329  # called after mktemp
+register_cleanup_file() {
+  TEMP_FILES+=("${1}")
+}
+
+cleanup_temp_files() {
+  local f
+  for f in "${TEMP_FILES[@]+"${TEMP_FILES[@]}"}"; do
+    rm -f -- "${f}"
+  done
+}
+
+# shellcheck disable=SC2329  # invoked indirectly via trap EXIT/INT/TERM
+run_cleanup() {
+  local action
+  for action in "${CLEANUP_ACTIONS[@]+"${CLEANUP_ACTIONS[@]}"}"; do
+    "${action}" 2>/dev/null || true
+  done
+}
+
+trap run_cleanup EXIT INT TERM
+register_cleanup cleanup_temp_files
+
+# ---------------------------------------------------------------------------
+# Table drawing helpers
+# ---------------------------------------------------------------------------
+
+# draw_separator COL1_WIDTH COL2_WIDTH ...
+# Prints a horizontal separator line using box-drawing characters.
+draw_separator() {
+  local line="${SYM_LJ}"
+  local i
+  for i in "${@}"; do
+    local seg
+    seg="$(printf '%0.s'"${SYM_H}" $(seq 1 "$((i + 2))"))"
+    line="${line}${seg}${SYM_TJ}"
+  done
+  printf '%b%s%b\n' "${DIM}" "${line%"${SYM_TJ}"}${SYM_RJ}" "${RESET}" >&2
+}
+
+# draw_top_border COL1_WIDTH COL2_WIDTH ...
+draw_top_border() {
+  local line="${SYM_TL}"
+  local i
+  for i in "${@}"; do
+    local seg
+    seg="$(printf '%0.s'"${SYM_H}" $(seq 1 "$((i + 2))"))"
+    line="${line}${seg}${SYM_TJ}"
+  done
+  printf '%b%s%b\n' "${DIM}" "${line%"${SYM_TJ}"}${SYM_TR}" "${RESET}" >&2
+}
+
+# draw_bottom_border COL1_WIDTH COL2_WIDTH ...
+draw_bottom_border() {
+  local line="${SYM_BL}"
+  local i
+  for i in "${@}"; do
+    local seg
+    seg="$(printf '%0.s'"${SYM_H}" $(seq 1 "$((i + 2))"))"
+    line="${line}${seg}${SYM_BJ}"
+  done
+  printf '%b%s%b\n' "${DIM}" "${line%"${SYM_BJ}"}${SYM_BR}" "${RESET}" >&2
+}
+
+# draw_row VALUE1 VALUE2 ...
+# Wraps each value in vertical-bar delimiters.
+draw_row() {
+  local out="${DIM}${SYM_V}${RESET}"
+  while [[ "${#}" -gt 0 ]]; do
+    out="${out} ${1} ${DIM}${SYM_V}${RESET}"
+    shift
+  done
+  printf '%b\n' "${out}" >&2
+}
+
+# ---------------------------------------------------------------------------
+# Help & version
+# ---------------------------------------------------------------------------
+
+show_help() {
+  cat <<'EOF'
+smoosh — aggregate repository files for RAG ingestion
+
+Usage: smoosh [OPTIONS] [TARGET]
+
+  TARGET  Path to a git repository or remote URL. Defaults to the current
+          directory. Run with no arguments in a TTY for interactive mode.
+
+File Types:
+  --docs            Docs files only: md, rst, txt, adoc, org, tex (default)
+  --code            Docs + code files: adds py, js, ts, rs, go, and many more
+  --all             All text files (MIME-validated)
+
+Filters:
+  --include GLOBS   Add file globs to current mode (comma-separated)
+  --only GLOBS      Only include these file globs (overrides mode)
+  --exclude GLOBS   Exclude paths matching these globs (comma-separated)
+                    Use path-aware globs: docs/* matches files inside docs/,
+                    not just a file named docs.
+  --include-hidden  Include hidden files and directories (.github/, etc.)
+
+Output:
+  --output-dir DIR  Output directory (default: _smooshes/)
+  --max-words N     Words per chunk (default: 450000)
+  --format FMT      Output format: md (default), text, xml
+  --toc             Include table of contents in each chunk
+  --line-numbers    Prepend line numbers to file content
+
+Safety:
+  --no-check-secrets  Skip secret pattern detection
+
+Display:
+  --dry-run         Preview files and estimates without generating output
+  --quiet           Output file paths only to stdout, for piping
+  --json            Output structured JSON (for agents and scripts)
+  --no-color        Disable colour output
+  --no-interactive  Force non-interactive mode even in a TTY
+
+Info:
+  --help, -h        Show this help text
+  --version         Show version
+
+Exit Codes:
+  0   Success
+  1   Usage error (bad arguments)
+  2   Target not found or not a git repository
+  3   No matching files found
+  5   Remote clone failed
+  7   Cannot create output directory
+
+Examples:
+  smoosh                          # interactive mode (guided setup)
+  smoosh --code                   # docs + code files
+  smoosh --code --toc             # with table of contents
+  smoosh https://github.com/u/r   # remote repository
+
+EOF
+}
+
+show_version() {
+  printf 'smoosh %s\n' "${VERSION}"
+}
+
+# ---------------------------------------------------------------------------
+# Argument parsing
+# ---------------------------------------------------------------------------
+
+# _parse_filter_flag — called by parse_args for filter-related flags.
+# Handles: --include, --only, --exclude, --include-hidden.
+# Sets _SHIFT_EXTRA=1 when a value argument is consumed.
+# Returns 1 when the flag is not recognised (caller falls through to main case).
+_parse_filter_flag() {
+  _SHIFT_EXTRA=0
+  case "${1}" in
+  --include)
+    [[ "${#}" -lt 2 ]] && die 1 "--include requires a value (comma-separated globs)"
+    [[ -z "${2//[[:space:]]/}" ]] && die 1 "--include requires a non-empty value (comma-separated globs)"
+    INCLUDE_PATTERNS="${2}"
+    _SHIFT_EXTRA=1
+    ;;
+  --only)
+    [[ "${#}" -lt 2 ]] && die 1 "--only requires a value (comma-separated globs)"
+    [[ -z "${2//[[:space:]]/}" ]] && die 1 "--only requires a non-empty value (comma-separated globs)"
+    ONLY_PATTERNS="${2}"
+    _SHIFT_EXTRA=1
+    ;;
+  --exclude)
+    [[ "${#}" -lt 2 ]] && die 1 "--exclude requires a value (comma-separated globs)"
+    [[ -z "${2//[[:space:]]/}" ]] && die 1 "--exclude requires a non-empty value (comma-separated globs)"
+    EXCLUDE_PATTERNS="${2}"
+    _SHIFT_EXTRA=1
+    ;;
+  --include-hidden)
+    INCLUDE_HIDDEN=true
+    ;;
+  *)
+    return 1
+    ;;
+  esac
+}
+
+# _parse_output_flag — called by parse_args for output-related flags.
+# Handles: --output-dir, --max-words, --format, --toc, --line-numbers.
+# Sets _SHIFT_EXTRA=1 when a value argument is consumed.
+# Returns 1 when the flag is not recognised (caller falls through to main case).
+_parse_output_flag() {
+  _SHIFT_EXTRA=0
+  case "${1}" in
+  --output-dir)
+    [[ "${#}" -lt 2 ]] && die 1 "--output-dir requires a path value"
+    [[ "${2}" == "/" ]] && die 1 "--output-dir cannot be the filesystem root (/)"
+    OUTPUT_DIR="${2}"
+    _SHIFT_EXTRA=1
+    ;;
+  --max-words)
+    [[ "${#}" -lt 2 ]] && die 1 "--max-words requires a numeric value"
+    [[ "${2}" =~ ^[1-9][0-9]*$ ]] || die 1 "--max-words requires a positive integer (>0), got: ${2}"
+    MAX_WORDS="${2}"
+    _SHIFT_EXTRA=1
+    ;;
+  --format)
+    [[ "${#}" -lt 2 ]] && die 1 "--format requires a value: md, text, or xml"
+    case "${2}" in
+    md | text | xml) FORMAT="${2}" ;;
+    *) die 1 "--format must be one of: md, text, xml (got: ${2})" ;;
+    esac
+    _SHIFT_EXTRA=1
+    ;;
+  --toc)
+    TOC=true
+    ;;
+  --line-numbers)
+    LINE_NUMBERS=true
+    ;;
+  *)
+    return 1
+    ;;
+  esac
+}
+
+# validate_args — post-parse cross-flag validation.
+validate_args() {
+  if [[ "${JSON_OUTPUT}" == "true" ]] && [[ "${QUIET}" == "true" ]]; then
+    die 1 "--json and --quiet are mutually exclusive. Use one or the other."
+  fi
+}
+
+parse_args() {
+  while [[ "${#}" -gt 0 ]]; do
+    # Normalise --flag=value to --flag value for uniform processing.
+    if [[ "${1}" == --*=* ]]; then
+      set -- "${1%%=*}" "${1#*=}" "${@:2}"
+    fi
+
+    if _parse_filter_flag "${@}"; then
+      shift $((1 + _SHIFT_EXTRA))
+      continue
+    fi
+    if _parse_output_flag "${@}"; then
+      shift $((1 + _SHIFT_EXTRA))
+      continue
+    fi
+
+    case "${1}" in
+    --help | -h)
+      show_help
+      exit 0
+      ;;
+    --version)
+      show_version
+      exit 0
+      ;;
+    --docs) MODE="docs" ;;
+    --code) MODE="code" ;;
+    --all) MODE="all" ;;
+    --no-check-secrets) NO_CHECK_SECRETS=true ;;
+    --dry-run) DRY_RUN=true ;;
+    --quiet) QUIET=true ;;
+    --json) JSON_OUTPUT=true ;;
+    --no-color) NO_COLOR_FLAG=true ;;
+    --no-interactive) NO_INTERACTIVE=true ;;
+    --)
+      shift
+      TARGET="${1-}"
+      break
+      ;;
+    --*)
+      die 1 "Unknown option: ${1}. Run smoosh --help for usage."
+      ;;
+    *)
+      if [[ -z "${TARGET}" ]]; then
+        TARGET="${1}"
+      else
+        die 1 "Unexpected argument: ${1}. Only one TARGET is allowed."
+      fi
+      ;;
+    esac
+    shift
+  done
+  validate_args
+}
+
+# ---------------------------------------------------------------------------
+# Phase 3: File discovery
+# ---------------------------------------------------------------------------
+
+# get_extensions_for_mode
+# Populate EFFECTIVE_EXTENSIONS from MODE. Call before resolve_extensions().
+get_extensions_for_mode() {
+  EFFECTIVE_EXTENSIONS=()
+  case "${MODE}" in
+  docs)
+    # shellcheck disable=SC2086  # intentional word-splitting of extension list
+    read -ra EFFECTIVE_EXTENSIONS <<<"${DOCS_EXTS}"
+    ;;
+  code)
+    # shellcheck disable=SC2086
+    read -ra EFFECTIVE_EXTENSIONS <<<"${DOCS_EXTS} ${CODE_EXTS_EXTRA}"
+    ;;
+  all)
+    EFFECTIVE_EXTENSIONS=() # no extension filter; MIME check handles filtering
+    ;;
+  esac
+}
+
+# resolve_extensions
+# Apply --include and --only on top of the mode extension list.
+resolve_extensions() {
+  get_extensions_for_mode
+
+  if [[ -n "${ONLY_PATTERNS}" ]]; then
+    # --only overrides mode entirely
+    EFFECTIVE_EXTENSIONS=()
+    local old_ifs="${IFS}"
+    IFS=','
+    local -a only_list=()
+    read -ra only_list <<<"${ONLY_PATTERNS}"
+    IFS="${old_ifs}"
+    local pat
+    for pat in "${only_list[@]+"${only_list[@]}"}"; do
+      pat="${pat#\*.}"
+      pat="${pat#.}"
+      if [[ -n "${pat}" ]]; then EFFECTIVE_EXTENSIONS+=("${pat}"); fi
+    done
+    return 0
+  fi
+
+  if [[ -n "${INCLUDE_PATTERNS}" ]]; then
+    local old_ifs="${IFS}"
+    IFS=','
+    local -a inc_list=()
+    read -ra inc_list <<<"${INCLUDE_PATTERNS}"
+    IFS="${old_ifs}"
+    local pat
+    for pat in "${inc_list[@]+"${inc_list[@]}"}"; do
+      pat="${pat#\*.}"
+      pat="${pat#.}"
+      if [[ -n "${pat}" ]]; then EFFECTIVE_EXTENSIONS+=("${pat}"); fi
+    done
+  fi
+}
+
+# resolve_target
+# Sets REPO_ROOT and REPO_NAME from TARGET (empty = cwd).
+resolve_target() {
+  if [[ -z "${TARGET}" ]]; then
+    TARGET="$(pwd)"
+  fi
+
+  # URL detection — delegate to clone_remote() (Phase 8).
+  case "${TARGET}" in
+  https://* | http://* | git@* | github.com/* | gitlab.com/* | bitbucket.org/*)
+    clone_remote "${TARGET}"
+    return 0
+    ;;
+  esac
+
+  if [[ ! -e "${TARGET}" ]]; then
+    die 2 "Path not found: ${TARGET}"
+  fi
+
+  if ! REPO_ROOT="$(git -C "${TARGET}" rev-parse --show-toplevel 2>/dev/null)"; then
+    die 2 "Not a git repository: ${TARGET}
+smoosh requires git to respect .gitignore rules."
+  fi
+
+  REPO_NAME="$(basename "${REPO_ROOT}" | tr ' ' '_' | tr -cd 'A-Za-z0-9._-')"
+  REPO_NAME="${REPO_NAME:-repo}"
+}
+
+# discover_files
+# Populate FILES array with repo-root-relative paths matching all filters.
+# Filter order: extension → --exclude path → hidden → output-dir exclusion.
+discover_files() {
+  FILES=()
+  local output_dir_prefix="${OUTPUT_DIR:-_smooshes}"
+  local rel_path
+
+  while IFS= read -r -d '' rel_path; do
+    # Step 2: Extension filter (skip in --all mode when array is empty)
+    if [[ "${#EFFECTIVE_EXTENSIONS[@]}" -gt 0 ]]; then
+      local matched=false
+      local ext
+      for ext in "${EFFECTIVE_EXTENSIONS[@]}"; do
+        if [[ "${rel_path}" == *."${ext}" ]]; then
+          matched=true
+          break
+        fi
+      done
+      [[ "${matched}" == "false" ]] && continue
+    fi
+
+    # Step 3: --exclude path filter (glob match against relative path)
+    if [[ -n "${EXCLUDE_PATTERNS}" ]]; then
+      local old_ifs="${IFS}"
+      IFS=','
+      local -a excl_arr=()
+      read -ra excl_arr <<<"${EXCLUDE_PATTERNS}"
+      IFS="${old_ifs}"
+      local excluded=false
+      local excl_pat
+      for excl_pat in "${excl_arr[@]+"${excl_arr[@]}"}"; do
+        # shellcheck disable=SC2254  # unquoted pattern for glob matching in case
+        case "${rel_path}" in
+        ${excl_pat}) excluded=true && break ;;
+        esac
+      done
+      [[ "${excluded}" == "true" ]] && continue
+    fi
+
+    # Step 4: Hidden file/directory filter
+    if [[ "${INCLUDE_HIDDEN}" != "true" ]]; then
+      if [[ "${rel_path}" == *"/."* ]] || [[ "${rel_path}" == "."* ]]; then
+        continue
+      fi
+    fi
+
+    # Step 5: Exclude output directory
+    if [[ "${rel_path}" == "${output_dir_prefix}/"* ]]; then
+      continue
+    fi
+
+    # Skip symlinks: never follow symlinks for local repos (defence against
+    # symlinks pointing outside REPO_ROOT).
+    [[ -L "${REPO_ROOT}/${rel_path}" ]] && continue
+
+    FILES+=("${rel_path}")
+  done < <(git -C "${REPO_ROOT}" ls-files -z \
+    --cached --others --exclude-standard |
+    LC_ALL=C sort -z)
+}
+
+# dry_run_preview
+# Print a preview of files that would be processed, with word counts.
+# Requires WORD_COUNTS and CHUNK_ASSIGNMENT to be pre-computed.
+# When --json is set, delegates to output_json() instead.
+dry_run_preview() {
+  if [[ "${JSON_OUTPUT}" == "true" ]]; then
+    output_json
+    return
+  fi
+
+  local count="${#FILES[@]}"
+  local total_words=0 i
+  for i in "${!FILES[@]}"; do
+    total_words=$((total_words + ${WORD_COUNTS[i]-0}))
+  done
+  local total_tokens
+  total_tokens="$(estimate_tokens "${total_words}")"
+
+  # Count chunks: max value in CHUNK_ASSIGNMENT.
+  local num_chunks=0
+  for i in "${!CHUNK_ASSIGNMENT[@]}"; do
+    [[ "${CHUNK_ASSIGNMENT[i]}" -gt "${num_chunks}" ]] && num_chunks="${CHUNK_ASSIGNMENT[i]}"
+  done
+
+  info ""
+  info "${BOLD}${SUN_1}Dry run${RESET} — ${count} file(s) matched in ${BOLD}${SUN_1}${REPO_NAME}${RESET}"
+  info ""
+  for i in "${!FILES[@]}"; do
+    local wc="${WORD_COUNTS[i]-0}"
+    printf '  %b%s%b %-52s %b%s words%b\n' \
+      "${SUN_2}" "${SYM_BULLET}" "${RESET}" "${FILES[i]}" \
+      "${DIM}" "$(format_number "${wc}")" "${RESET}" >&2
+  done
+  info ""
+  printf '  Files : %b%s%b\n' "${BOLD}${SUN_1}" "$(format_number "${count}")" "${RESET}" >&2
+  printf '  Words : %b%s%b\n' "${BOLD}${SUN_1}" "$(format_number "${total_words}")" "${RESET}" >&2
+  printf '  Tokens: %b~%s%b\n' "${BOLD}${SUN_1}" "$(format_number "${total_tokens}")" "${RESET}" >&2
+  printf '  Chunks: %b~%s%b\n' "${BOLD}${SUN_1}" "${num_chunks}" "${RESET}" >&2
+  info ""
+  info "Run without ${BOLD}${SUN_2}--dry-run${RESET} to generate output."
+}
+
+# ---------------------------------------------------------------------------
+# Phase 4: Pre-computation, processing, verification, summary
+# ---------------------------------------------------------------------------
+
+# ensure_output_dir
+# Create the output directory and add it to .gitignore (safe append only).
+ensure_output_dir() {
+  local dir="${OUTPUT_DIR:-_smooshes}"
+  # For remote repos output goes to USER_CWD/_smooshes (already set by
+  # clone_remote). For local repos, anchor relative paths to REPO_ROOT.
+  if [[ "${REMOTE_REPO}" != "true" ]] && [[ "${dir}" != /* ]]; then
+    dir="${REPO_ROOT}/${dir}"
+  fi
+  OUTPUT_DIR="${dir}"
+
+  # Warn if output directory is outside the repository root (local repos only).
+  if [[ "${REMOTE_REPO}" != "true" ]] && [[ "${OUTPUT_DIR}" != "${REPO_ROOT}/"* ]]; then
+    warn "--output-dir is outside the repository root; output will not be auto-gitignored: ${OUTPUT_DIR}"
+  fi
+
+  if [[ ! -d "${OUTPUT_DIR}" ]]; then
+    mkdir -p "${OUTPUT_DIR}" || die 7 "Cannot create output directory: ${OUTPUT_DIR}"
+  fi
+
+  # Remote repos: skip .gitignore (the clone is a temp dir, not the user's repo).
+  [[ "${REMOTE_REPO}" == "true" ]] && return 0
+
+  # Compute repo-root-relative gitignore entry (skip for paths outside the repo).
+  local gitignore="${REPO_ROOT}/.gitignore"
+  local entry
+  if [[ "${OUTPUT_DIR}" == "${REPO_ROOT}/"* ]]; then
+    entry="${OUTPUT_DIR#"${REPO_ROOT}/"}"
+    entry="${entry}/"
+  else
+    entry="${OUTPUT_DIR}/"
+  fi
+  if ! grep -qF -- "${entry}" "${gitignore}" 2>/dev/null; then
+    local tmp
+    # Create temp in REPO_ROOT so mv to .gitignore is atomic (same filesystem).
+    tmp="$(mktemp "${REPO_ROOT}/.gitignore.tmp.XXXXXX")"
+    register_cleanup_file "${tmp}"
+    if [[ -f "${gitignore}" ]] && [[ -s "${gitignore}" ]]; then
+      # Ensure trailing newline before appending.
+      cp "${gitignore}" "${tmp}"
+      if [[ "$(tail -c 1 "${gitignore}" | wc -c)" -gt 0 ]]; then
+        printf '\n' >>"${tmp}"
+      fi
+    fi
+    printf '%s\n' "${entry}" >>"${tmp}"
+    mv "${tmp}" "${gitignore}"
+    info "${SUN_2}${SYM_ARROW}${RESET} Added ${entry} to .gitignore"
+  fi
+}
+
+# batch_word_counts
+# Populate WORD_COUNTS indexed array. One xargs wc -w call for all files.
+batch_word_counts() {
+  WORD_COUNTS=()
+  local list_file
+  list_file="$(mktemp)"
+  register_cleanup_file "${list_file}"
+
+  local i
+  for i in "${!FILES[@]}"; do
+    # Null-separated paths: xargs -0 reads them safely regardless of special chars
+    # (single quotes, spaces, brackets) that BSD xargs interprets as quoting metacharacters.
+    printf '%s/%s\0' "${REPO_ROOT}" "${FILES[${i}]}" >>"${list_file}"
+  done
+
+  # xargs -0 splits the arg list on NUL, bypassing ARG_MAX and quoting issues.
+  # wc preserves input order within each xargs batch; assign by sequential index.
+  local line count idx=0
+  while IFS= read -r line; do
+    # Format: "  1234 /abs/path/to/file" — strip leading whitespace, take count.
+    line="${line#"${line%%[! ]*}"}" # strip leading whitespace
+    count="${line%% *}"             # first word = count
+    WORD_COUNTS[idx]="${count}"
+    idx=$((idx + 1))
+  done < <(xargs -0 wc -w <"${list_file}" 2>/dev/null | grep -v ' total$')
+
+  # Default any missing entries to 0.
+  for i in "${!FILES[@]}"; do
+    if [[ -z "${WORD_COUNTS[i]-}" ]]; then
+      WORD_COUNTS[i]=0
+    fi
+  done
+}
+
+# batch_mime_check
+# Populate MIME_TYPES indexed array. Only runs in --all mode.
+batch_mime_check() {
+  MIME_TYPES=()
+  [[ "${MODE}" != "all" ]] && return 0 # extension filter is sufficient for docs/code
+
+  command -v file >/dev/null 2>&1 || {
+    warn "file command not found — skipping MIME validation"
+    return 0
+  }
+
+  local list_file
+  list_file="$(mktemp)"
+  register_cleanup_file "${list_file}"
+
+  local i
+  for i in "${!FILES[@]}"; do
+    # NUL-separated: safe for filenames with spaces, quotes, or special chars.
+    printf '%s/%s\0' "${REPO_ROOT}" "${FILES[${i}]}" >>"${list_file}"
+  done
+
+  # xargs -0 + file -b: one MIME type per line in input order; assign sequentially.
+  local mime idx=0
+  while IFS= read -r mime; do
+    MIME_TYPES[idx]="${mime}"
+    idx=$((idx + 1))
+  done < <(xargs -0 file --mime-type -b -- <"${list_file}" 2>/dev/null)
+
+  # Verify output count matches input to catch silent `file` entry drops.
+  if [[ "${idx}" -ne "${#FILES[@]}" ]]; then
+    warn "MIME check: expected ${#FILES[@]} results, got ${idx} — MIME type assignments may be misaligned"
+  fi
+
+  # Remove non-text files from FILES (allowlist approach).
+  local new_files=()
+  local new_wc=()
+  for i in "${!FILES[@]}"; do
+    local mt="${MIME_TYPES[i]-}"
+    case "${mt}" in
+    text/* | application/json | application/xml | application/javascript | \
+      application/x-shellscript | application/toml | application/yaml | \
+      inode/x-empty)
+      new_files+=("${FILES[${i}]}")
+      new_wc+=("${WORD_COUNTS[i]-0}")
+      ;;
+    *)
+      [[ -n "${mt}" ]] && warn "Skipping non-text file: ${FILES[${i}]} (${mt})"
+      ;;
+    esac
+  done
+  FILES=("${new_files[@]+"${new_files[@]}"}")
+  WORD_COUNTS=("${new_wc[@]+"${new_wc[@]}"}")
+}
+
+# xml_escape_attr VALUE
+# Escape a string for use in an XML attribute value.
+xml_escape_attr() {
+  local s="${1}"
+  s="${s//&/&amp;}"
+  s="${s//</&lt;}"
+  s="${s//>/&gt;}"
+  s="${s//\"/&quot;}"
+  printf '%s' "${s}"
+}
+
+# estimate_tokens WORD_COUNT
+# Returns estimated token count (~1.3x word count, integer math).
+estimate_tokens() {
+  printf '%s' "$((${1} * 13 / 10))"
+}
+
+# format_number N
+# Add thousands separators: 1234567 → 1,234,567.
+format_number() {
+  local n="${1}" result="" len
+  len="${#n}"
+  local i
+  for ((i = 0; i < len; i++)); do
+    if ((i > 0 && (len - i) % 3 == 0)); then
+      result="${result},"
+    fi
+    result="${result}${n:${i}:1}"
+  done
+  printf '%s' "${result}"
+}
+
+# write_chunk_header FD CHUNK_NUM
+# Write format-specific header to file descriptor FD.
+write_chunk_header() {
+  local fd="${1}" chunk_num="${2}"
+  local ts
+  ts="$(date '+%Y-%m-%d %H:%M:%S')"
+  case "${FORMAT}" in
+  md)
+    printf '# Repository Compilation: %s (Part %s)\n' "${REPO_NAME}" "${chunk_num}" >&"${fd}"
+    printf 'Generated: %s\n\n' "${ts}" >&"${fd}"
+    ;;
+  text)
+    printf 'Repository Compilation: %s (Part %s)\n' "${REPO_NAME}" "${chunk_num}" >&"${fd}"
+    printf 'Generated: %s\n' "${ts}" >&"${fd}"
+    printf '%s\n\n' "$(printf '=%.0s' {1..60})" >&"${fd}"
+    ;;
+  xml)
+    printf '<?xml version="1.0" encoding="UTF-8"?>\n' >&"${fd}"
+    printf '<smoosh repo="%s" part="%s" generated="%s">\n' \
+      "$(xml_escape_attr "${REPO_NAME}")" "${chunk_num}" "${ts}" >&"${fd}"
+    ;;
+  esac
+}
+
+# write_chunk_footer FD
+# Write format-specific closing element (XML only).
+write_chunk_footer() {
+  local fd="${1}"
+  if [[ "${FORMAT}" == "xml" ]]; then
+    printf '</smoosh>\n' >&"${fd}"
+  fi
+}
+
+# add_line_numbers FILE
+# Print file content to stdout with right-aligned line numbers.
+add_line_numbers() {
+  nl -ba -nrz -w4 -s' | ' -- "${1}" 2>/dev/null || cat -- "${1}"
+}
+
+# write_file_entry FD REL_PATH
+# Write format-specific block for one file to file descriptor FD.
+write_file_entry() {
+  local fd="${1}" rel_path="${2}"
+  local abs_path="${REPO_ROOT}/${rel_path}"
+
+  case "${FORMAT}" in
+  md)
+    printf '\n\n---\n### File: %s\n---\n\n' "${rel_path}" >&"${fd}"
+    ;;
+  text)
+    printf '\n\n%s\n' "${TEXT_SEP}" >&"${fd}"
+    printf 'File: %s\n' "${rel_path}" >&"${fd}"
+    printf '%s\n\n' "${TEXT_SEP}" >&"${fd}"
+    ;;
+  xml)
+    printf '<file path="%s">\n<content><![CDATA[' \
+      "$(xml_escape_attr "${rel_path}")" >&"${fd}"
+    ;;
+  esac
+
+  if [[ "${FORMAT}" == "xml" ]]; then
+    # XML CDATA: escape ]]> sequences in all content paths, including --line-numbers.
+    if [[ "${LINE_NUMBERS}" == "true" ]]; then
+      add_line_numbers "${abs_path}" |
+        sed 's/]]>/]]]]><![CDATA[>/g' >&"${fd}"
+    else
+      # Group sed+fallback so only one redirect is applied to the combined stdout.
+      { sed 's/]]>/]]]]><![CDATA[>/g' -- "${abs_path}" 2>/dev/null ||
+        cat -- "${abs_path}"; } >&"${fd}"
+    fi
+  elif [[ "${LINE_NUMBERS}" == "true" ]]; then
+    add_line_numbers "${abs_path}" >&"${fd}"
+  else
+    cat -- "${abs_path}" >&"${fd}"
+  fi
+  printf '\n' >&"${fd}"
+
+  if [[ "${FORMAT}" == "xml" ]]; then
+    printf ']]></content>\n</file>\n' >&"${fd}"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Phase 5: Table of Contents
+# ---------------------------------------------------------------------------
+
+# compute_chunk_assignments
+# Pre-compute CHUNK_ASSIGNMENT[i] for every file using WORD_COUNTS.
+# Mirrors the chunking logic in process_files so both are always in sync.
+compute_chunk_assignments() {
+  CHUNK_ASSIGNMENT=()
+  local chunk=1 chunk_words=0 i wc
+  for i in "${!FILES[@]}"; do
+    wc="${WORD_COUNTS[i]-0}"
+    if ((chunk_words + wc > MAX_WORDS && chunk_words > 0)); then
+      chunk=$((chunk + 1))
+      chunk_words=0
+    fi
+    CHUNK_ASSIGNMENT[i]=${chunk}
+    chunk_words=$((chunk_words + wc))
+  done
+}
+
+# write_toc FD CHUNK_NUM
+# Write format-specific table of contents for CHUNK_NUM to file descriptor FD.
+write_toc() {
+  local fd="${1}" chunk_num="${2}"
+  local row=1 total_words=0 file_count=0
+  local i
+
+  case "${FORMAT}" in
+  md)
+    printf '\n## Table of Contents\n\n' >&"${fd}"
+    printf '| # | File | Words |\n' >&"${fd}"
+    printf '|---|------|-------|\n' >&"${fd}"
+    for i in "${!FILES[@]}"; do
+      [[ "${CHUNK_ASSIGNMENT[i]-0}" -ne "${chunk_num}" ]] && continue
+      local wc="${WORD_COUNTS[i]-0}"
+      printf '| %d | %s | %s |\n' "${row}" "${FILES[${i}]}" \
+        "$(format_number "${wc}")" >&"${fd}"
+      row=$((row + 1))
+      total_words=$((total_words + wc))
+      file_count=$((file_count + 1))
+    done
+    printf '| **Total** | **%d files** | **%s** |\n\n' \
+      "${file_count}" "$(format_number "${total_words}")" >&"${fd}"
+    ;;
+  text)
+    local sep
+    sep="$(printf -- '-%.0s' {1..60})"
+    printf '\nTable of Contents\n%s\n\n' "${sep}" >&"${fd}"
+    for i in "${!FILES[@]}"; do
+      [[ "${CHUNK_ASSIGNMENT[i]-0}" -ne "${chunk_num}" ]] && continue
+      local wc="${WORD_COUNTS[i]-0}"
+      printf '  %3d  %-50s  %s words\n' "${row}" "${FILES[${i}]}" \
+        "$(format_number "${wc}")" >&"${fd}"
+      row=$((row + 1))
+      total_words=$((total_words + wc))
+      file_count=$((file_count + 1))
+    done
+    printf '\n  Total: %d files, %s words\n\n' \
+      "${file_count}" "$(format_number "${total_words}")" >&"${fd}"
+    ;;
+  xml)
+    printf '<toc>\n' >&"${fd}"
+    for i in "${!FILES[@]}"; do
+      [[ "${CHUNK_ASSIGNMENT[i]-0}" -ne "${chunk_num}" ]] && continue
+      local wc="${WORD_COUNTS[i]-0}"
+      printf '  <entry num="%d" path="%s" words="%d"/>\n' \
+        "${row}" "$(xml_escape_attr "${FILES[${i}]}")" "${wc}" >&"${fd}"
+      row=$((row + 1))
+      total_words=$((total_words + wc))
+      file_count=$((file_count + 1))
+    done
+    printf '  <summary files="%d" words="%d"/>\n</toc>\n' \
+      "${file_count}" "${total_words}" >&"${fd}"
+    ;;
+  esac
+}
+
+# process_files
+# Main aggregation loop — writes output chunks, populates GENERATED_CHUNKS.
+GENERATED_CHUNKS=()
+PROCESSED_FILES=()
+
+process_files() {
+  GENERATED_CHUNKS=()
+  PROCESSED_FILES=()
+
+  local date_str
+  date_str="$(date '+%Y_%m_%d_%H_%M_%S')"
+
+  local ext
+  case "${FORMAT}" in
+  md) ext="md" ;;
+  text) ext="txt" ;;
+  xml) ext="xml" ;;
+  esac
+
+  local chunk_num=1
+  local chunk_words=0
+  local output_file="${OUTPUT_DIR}/${date_str}_${REPO_NAME}_part${chunk_num}.${ext}"
+  GENERATED_CHUNKS+=("${output_file}")
+
+  exec 3>"${output_file}"
+  write_chunk_header 3 "${chunk_num}"
+  [[ "${TOC}" == "true" ]] && write_toc 3 "${chunk_num}"
+
+  local total_files="${#FILES[@]}"
+  local i
+  for i in "${!FILES[@]}"; do
+    local rel_path="${FILES[${i}]}"
+    local abs_path="${REPO_ROOT}/${rel_path}"
+    local file_words="${WORD_COUNTS[i]-0}"
+
+    if [[ ! -r "${abs_path}" ]]; then
+      warn "File not readable, skipping: ${rel_path}"
+      continue
+    fi
+
+    # Chunking: if this file would exceed MAX_WORDS, start a new chunk.
+    if ((chunk_words + file_words > MAX_WORDS && chunk_words > 0)); then
+      write_chunk_footer 3
+      exec 3>&-
+      chunk_num=$((chunk_num + 1))
+      chunk_words=0
+      output_file="${OUTPUT_DIR}/${date_str}_${REPO_NAME}_part${chunk_num}.${ext}"
+      GENERATED_CHUNKS+=("${output_file}")
+      exec 3>"${output_file}"
+      write_chunk_header 3 "${chunk_num}"
+      [[ "${TOC}" == "true" ]] && write_toc 3 "${chunk_num}"
+    fi
+
+    write_file_entry 3 "${rel_path}"
+    PROCESSED_FILES+=("${rel_path}")
+    chunk_words=$((chunk_words + file_words))
+
+    # Progress indication for repos with more than 20 files.
+    if [[ "${QUIET}" != "true" ]] && ((total_files > 20)); then
+      local done_count=$((i + 1))
+      if [[ -t 2 ]]; then
+        # TTY: in-place update with carriage return.
+        ((done_count % 25 == 0 || done_count == total_files)) &&
+          printf '\r  Processing %d/%d...' "${done_count}" "${total_files}" >&2
+      else
+        # Non-TTY: milestone lines at 25%, 50%, 75%, 100%.
+        local pct=$((done_count * 100 / total_files))
+        case "${pct}" in
+        25 | 50 | 75 | 100)
+          if ((done_count % (total_files / 4 + 1) == 0 || done_count == total_files)); then
+            printf '  Processing %d/%d (%d%%)\n' "${done_count}" "${total_files}" "${pct}" >&2
+          fi
+          ;;
+        esac
+      fi
+    fi
+  done
+
+  # Clear TTY progress line.
+  [[ -t 2 ]] && [[ "${QUIET}" != "true" ]] && printf '\r%*s\r' 40 '' >&2
+
+  write_chunk_footer 3
+  exec 3>&-
+}
+
+# verify_output
+# Compare expected (PROCESSED_FILES) vs actual (headers in chunks).
+# On mismatch: show diff, delete partial output, exit 4.
+verify_output() {
+  local expected_file actual_file
+  expected_file="$(mktemp)"
+  actual_file="$(mktemp)"
+  register_cleanup_file "${expected_file}"
+  register_cleanup_file "${actual_file}"
+
+  if [[ "${#PROCESSED_FILES[@]}" -gt 0 ]]; then
+    printf '%s\n' "${PROCESSED_FILES[@]}" | LC_ALL=C sort >"${expected_file}"
+  else
+    : >"${expected_file}"
+  fi
+
+  # Extract file path markers from generated chunks (format-aware).
+  local chunk
+  for chunk in "${GENERATED_CHUNKS[@]+"${GENERATED_CHUNKS[@]}"}"; do
+    case "${FORMAT}" in
+    md) grep -o '^### File: .*' -- "${chunk}" | sed 's/^### File: //' ;;
+    text) grep -o '^File: .*' -- "${chunk}" | sed 's/^File: //' ;;
+    xml) grep -o '<file path="[^"]*"' -- "${chunk}" | sed 's/^<file path="//;s/"$//' ;;
+    esac
+  done | LC_ALL=C sort >"${actual_file}"
+
+  if ! cmp -s "${expected_file}" "${actual_file}"; then
+    error "Verification failed — file list mismatch:"
+    diff "${expected_file}" "${actual_file}" >&2 || true
+    # Delete partial outputs to avoid leaving bad state.
+    local chunk
+    for chunk in "${GENERATED_CHUNKS[@]+"${GENERATED_CHUNKS[@]}"}"; do
+      [[ -f "${chunk}" ]] && rm -f -- "${chunk}"
+    done
+    exit 4
+  fi
+
+  printf '%b%s Verified: %d files, 100%% inclusion%b\n' \
+    "${SUN_1}" "${SYM_CHECK}" "${#PROCESSED_FILES[@]}" "${RESET}" >&2
+}
+
+# show_summary
+# Print results table to stderr, or (in quiet mode) chunk paths to stdout.
+show_summary() {
+  local total_words=0 total_tokens=0
+  local chunk
+  for chunk in "${GENERATED_CHUNKS[@]+"${GENERATED_CHUNKS[@]}"}"; do
+    [[ -f "${chunk}" ]] || continue
+    local w
+    w="$(LC_ALL=C wc -w <"${chunk}" 2>/dev/null | tr -d ' ')"
+    total_words=$((total_words + w))
+    if [[ "${QUIET}" == "true" ]]; then
+      # Quiet mode: output file paths to stdout, one per line.
+      printf '%s\n' "${chunk}"
+    else
+      printf '%s\n' "  $(basename "${chunk}") — $(format_number "${w}") words" >&2
+    fi
+  done
+
+  [[ "${QUIET}" == "true" ]] && return 0
+
+  total_tokens="$(estimate_tokens "${total_words}")"
+
+  info ""
+  printf '  Files processed : %b%s%b\n' "${BOLD}${SUN_1}" "${#PROCESSED_FILES[@]}" "${RESET}" >&2
+  printf '  Total words     : %b%s%b\n' "${BOLD}${SUN_1}" "$(format_number "${total_words}")" "${RESET}" >&2
+  printf '  Est. tokens     : %b%s%b\n' "${BOLD}${SUN_1}" "$(format_number "${total_tokens}")" "${RESET}" >&2
+  printf '  Chunks created  : %b%s%b\n' "${BOLD}${SUN_1}" "${#GENERATED_CHUNKS[@]}" "${RESET}" >&2
+  info ""
+  local display_dir="${OUTPUT_DIR}"
+  if [[ "${display_dir}" == "${REPO_ROOT}/"* ]]; then
+    display_dir="${display_dir#"${REPO_ROOT}/"}"
+  fi
+  printf '  %b%s Output in:%b %b%s/%b\n' \
+    "${SUN_1}" "${SYM_CHECK}" "${RESET}" "${SUN_2}" "${display_dir}" "${RESET}" >&2
+  info ""
+  printf '  %bReady for: NotebookLM, Claude Projects, ChatGPT, RAG pipelines.%b\n' \
+    "${DIM}" "${RESET}" >&2
+
+  local chunk_count="${#GENERATED_CHUNKS[@]}"
+  if ((chunk_count > 600)); then
+    warn "Over 600 chunks: exceeds NotebookLM Ultra limit (600 sources)."
+  elif ((chunk_count > 300)); then
+    warn "Over 300 chunks: exceeds NotebookLM Plus limit (300 sources)."
+  elif ((chunk_count > 50)); then
+    warn "Over 50 chunks: exceeds NotebookLM free limit (50 sources)."
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Phase 6: Safety — Secrets Detection
+# ---------------------------------------------------------------------------
+
+# get_secret_patterns
+# Populate SECRET_PATTERNS with ERE patterns for common secret formats.
+SECRET_PATTERNS=()
+SECRET_PATTERN_NAMES=()
+GENERIC_SECRET_PAT="" # set by get_secret_patterns(), used by scan_secrets helpers
+FLAGGED_PATHS=""      # set by scan_secrets(), read by _secrets_report_findings/_secrets_filter_files
+get_secret_patterns() {
+  SECRET_PATTERNS=(
+    "AKIA[0-9A-Z]{16}"
+    "-----BEGIN [A-Z ]*PRIVATE KEY-----"
+    "ghp_[a-zA-Z0-9]{36}"
+    "gho_[a-zA-Z0-9]{36}"
+    "ghs_[a-zA-Z0-9]{36}"
+    "sk-ant-api[0-9]{2}-[a-zA-Z0-9_-]{95,}"
+    "sk-[a-zA-Z0-9]{32,}"
+    "sk-proj-[a-zA-Z0-9_-]{20,}"
+    "xox[bpars]-[0-9a-zA-Z-]+"
+    "SG\\.[a-zA-Z0-9_-]{22}\\.[a-zA-Z0-9_-]{43}"
+    "glpat-[a-zA-Z0-9_-]{20}"
+  )
+  SECRET_PATTERN_NAMES=(
+    "AWS Access Key"
+    "Private Key Block"
+    "GitHub PAT (ghp_)"
+    "GitHub OAuth Token (gho_)"
+    "GitHub App Token (ghs_)"
+    "Anthropic API Key"
+    "OpenAI API Key"
+    "OpenAI Project Key"
+    "Slack Token"
+    "SendGrid API Key"
+    "GitLab PAT"
+  )
+  # Generic credential pattern — applied to non-doc files only (less noise).
+  local q="'"
+  GENERIC_SECRET_PAT="(password|secret|token|api_key)[[:space:]]*[=:][[:space:]]*[\"${q}][^\"${q}]{8,}"
+}
+
+# _secrets_report_findings
+# Emit per-file warning lines for each matched pattern. Never prints secret values.
+# Reads: FLAGGED_PATHS, REPO_ROOT, SECRET_PATTERNS, SECRET_PATTERN_NAMES, GENERIC_SECRET_PAT.
+_secrets_report_findings() {
+  warn ""
+  warn "${SYM_WARN} Potential secrets detected:"
+  warn ""
+  local flagged_path rel
+  while IFS= read -r flagged_path; do
+    [[ -z "${flagged_path}" ]] && continue
+    rel="${flagged_path#"${REPO_ROOT}/"}"
+
+    local j
+    for j in "${!SECRET_PATTERNS[@]}"; do
+      local hits=""
+      # '|| true' prevents pipefail when grep finds no match (exit 1).
+      hits="$(grep -nE -e "${SECRET_PATTERNS[j]}" -- "${flagged_path}" 2>/dev/null |
+        cut -d: -f1 | tr '\n' ',' | sed 's/,$//' || true)"
+      if [[ -n "${hits}" ]]; then
+        warn "  ${rel}: line(s) ${hits} — ${SECRET_PATTERN_NAMES[j]}"
+      fi
+    done
+
+    # Generic pattern on non-doc files only.
+    case "${rel}" in
+    *.md | *.mdx | *.rst | *.adoc | *.asciidoc | *.org | *.tex) ;;
+    *)
+      local gen_hits=""
+      gen_hits="$(grep -nE "${GENERIC_SECRET_PAT}" -- "${flagged_path}" 2>/dev/null |
+        cut -d: -f1 | tr '\n' ',' | sed 's/,$//' || true)"
+      if [[ -n "${gen_hits}" ]]; then
+        warn "  ${rel}: line(s) ${gen_hits} — Generic credential pattern"
+      fi
+      ;;
+    esac
+  done <<<"${FLAGGED_PATHS}"
+
+  warn ""
+  warn "  ${SYM_ARROW} Flagged files excluded from output."
+  warn "  ${SYM_ARROW} Note: Basic pattern scan — not a security guarantee."
+  warn "  ${SYM_ARROW} For thorough scanning: gitleaks, truffleHog, Secretlint"
+  warn ""
+}
+
+# _secrets_filter_files
+# Remove flagged files from FILES and WORD_COUNTS arrays.
+# Reads: FLAGGED_PATHS, REPO_ROOT. Modifies: FILES, WORD_COUNTS.
+_secrets_filter_files() {
+  local flagged_arr=()
+  local flagged_path
+  while IFS= read -r flagged_path; do
+    [[ -n "${flagged_path}" ]] && flagged_arr+=("${flagged_path}")
+  done <<<"${FLAGGED_PATHS}"
+
+  local new_files=()
+  local new_wc=()
+  local i
+  for i in "${!FILES[@]}"; do
+    local abs="${REPO_ROOT}/${FILES[i]}"
+    local skip=false
+    local fp
+    for fp in "${flagged_arr[@]+"${flagged_arr[@]}"}"; do
+      if [[ "${abs}" == "${fp}" ]]; then
+        skip=true
+        break
+      fi
+    done
+    if [[ "${skip}" == "false" ]]; then
+      new_files+=("${FILES[i]}")
+      new_wc+=("${WORD_COUNTS[i]-0}")
+    fi
+  done
+  FILES=("${new_files[@]+"${new_files[@]}"}")
+  WORD_COUNTS=("${new_wc[@]+"${new_wc[@]}"}")
+}
+
+# scan_secrets
+# Run batch grep across FILES[]. Rebuild FILES/WORD_COUNTS without flagged files.
+# Must run after batch_word_counts/batch_mime_check, before compute_chunk_assignments.
+# No-op when --no-check-secrets is set.
+scan_secrets() {
+  [[ "${NO_CHECK_SECRETS}" == "true" ]] && return 0
+  [[ "${#FILES[@]}" -eq 0 ]] && return 0
+
+  get_secret_patterns
+
+  # Build combined ERE alternation for fast batch pass.
+  local combined="" pat
+  for pat in "${SECRET_PATTERNS[@]}"; do
+    if [[ -z "${combined}" ]]; then
+      combined="${pat}"
+    else
+      combined="${combined}|${pat}"
+    fi
+  done
+
+  # Write absolute paths to temp file; batch grep for specific patterns.
+  local list_file
+  list_file="$(mktemp)"
+  register_cleanup_file "${list_file}"
+  local i
+  for i in "${!FILES[@]}"; do
+    printf '%s\0' "${REPO_ROOT}/${FILES[i]}" >>"${list_file}"
+  done
+  FLAGGED_PATHS="$(xargs -0 grep -lE "${combined}" <"${list_file}" 2>/dev/null || true)"
+
+  # Generic pattern on non-doc files only.
+  local nonmd_list
+  nonmd_list="$(mktemp)"
+  register_cleanup_file "${nonmd_list}"
+  for i in "${!FILES[@]}"; do
+    case "${FILES[i]}" in
+    *.md | *.mdx | *.rst | *.adoc | *.asciidoc | *.org | *.tex) ;;
+    *) printf '%s\0' "${REPO_ROOT}/${FILES[i]}" >>"${nonmd_list}" ;;
+    esac
+  done
+  if [[ -s "${nonmd_list}" ]]; then
+    local more=""
+    more="$(xargs -0 grep -lE "${GENERIC_SECRET_PAT}" <"${nonmd_list}" 2>/dev/null || true)"
+    if [[ -n "${more}" ]]; then
+      FLAGGED_PATHS="$(printf '%s\n%s\n' "${FLAGGED_PATHS}" "${more}" | LC_ALL=C sort -u)"
+    fi
+  fi
+
+  [[ -z "${FLAGGED_PATHS}" ]] && return 0
+  _secrets_report_findings
+  _secrets_filter_files
+}
+
+# ---------------------------------------------------------------------------
+# Phase 9: UX Polish — JSON output, progress, quiet mode
+# ---------------------------------------------------------------------------
+
+# json_escape VALUE
+# Escape a string for safe embedding in a JSON string literal.
+# Pure bash — no external tools required.
+json_escape() {
+  local s="${1}"
+  s="${s//\\/\\\\}"   # \ → \\  (must be first)
+  s="${s//\"/\\\"}"   # " → \"
+  s="${s//$'\n'/\\n}" # newline → \n
+  s="${s//$'\r'/\\r}" # CR → \r
+  s="${s//$'\t'/\\t}" # tab → \t
+  printf '%s' "${s}"
+}
+
+# output_json
+# Write structured JSON to stdout. All other output is suppressed to stderr.
+# Handles both --dry-run and normal modes based on DRY_RUN flag.
+output_json() {
+  local repo
+  repo="$(json_escape "${REPO_NAME}")"
+
+  if [[ "${DRY_RUN}" == "true" ]]; then
+    # Dry-run JSON: per-file list with estimated chunk assignment and word counts.
+    local total_words=0 num_chunks=0 i
+    for i in "${!FILES[@]}"; do
+      total_words=$((total_words + ${WORD_COUNTS[i]-0}))
+    done
+    for i in "${!CHUNK_ASSIGNMENT[@]}"; do
+      [[ "${CHUNK_ASSIGNMENT[i]}" -gt "${num_chunks}" ]] && num_chunks="${CHUNK_ASSIGNMENT[i]}"
+    done
+    local total_tokens
+    total_tokens="$(estimate_tokens "${total_words}")"
+
+    printf '{\n'
+    printf '  "dry_run": true,\n'
+    printf '  "repo": "%s",\n' "${repo}"
+    printf '  "files": [\n'
+    local last_i="${#FILES[@]}"
+    last_i=$((last_i - 1))
+    for i in "${!FILES[@]}"; do
+      local path wc chunk_num
+      path="$(json_escape "${FILES[i]}")"
+      wc="${WORD_COUNTS[i]-0}"
+      chunk_num="${CHUNK_ASSIGNMENT[i]-1}"
+      if [[ "${i}" -lt "${last_i}" ]]; then
+        printf '    {"path": "%s", "words": %d, "chunk": %d},\n' "${path}" "${wc}" "${chunk_num}"
+      else
+        printf '    {"path": "%s", "words": %d, "chunk": %d}\n' "${path}" "${wc}" "${chunk_num}"
+      fi
+    done
+    printf '  ],\n'
+    printf '  "total_words": %d,\n' "${total_words}"
+    printf '  "estimated_tokens": %d,\n' "${total_tokens}"
+    printf '  "estimated_chunks": %d\n' "${num_chunks}"
+    printf '}\n'
+    return
+  fi
+
+  # Normal JSON: processed files, generated chunks, with output metadata.
+  local total_words=0
+  local chunk_json="" first_chunk=true
+  for chunk in "${GENERATED_CHUNKS[@]+"${GENERATED_CHUNKS[@]}"}"; do
+    [[ -f "${chunk}" ]] || continue
+    local w
+    w="$(LC_ALL=C wc -w <"${chunk}" 2>/dev/null | tr -d ' ')"
+    total_words=$((total_words + w))
+    local cpath
+    cpath="$(json_escape "${chunk}")"
+    if [[ "${first_chunk}" == "true" ]]; then
+      chunk_json="    {\"path\": \"${cpath}\", \"words\": ${w}}"
+      first_chunk=false
+    else
+      chunk_json="${chunk_json},\n    {\"path\": \"${cpath}\", \"words\": ${w}}"
+    fi
+  done
+  local total_tokens
+  total_tokens="$(estimate_tokens "${total_words}")"
+
+  local odir
+  odir="$(json_escape "${OUTPUT_DIR}")"
+
+  printf '{\n'
+  printf '  "repo": "%s",\n' "${repo}"
+  printf '  "output_dir": "%s",\n' "${odir}"
+  printf '  "files_processed": %d,\n' "${#PROCESSED_FILES[@]}"
+  printf '  "total_words": %d,\n' "${total_words}"
+  printf '  "estimated_tokens": %d,\n' "${total_tokens}"
+  printf '  "verified": true,\n'
+  if [[ "${NO_CHECK_SECRETS}" == "true" ]]; then
+    printf '  "secrets_scan_skipped": true,\n'
+  else
+    # Build secrets_excluded array from FLAGGED_PATHS (newline-separated absolute paths).
+    local secrets_json="[]"
+    if [[ -n "${FLAGGED_PATHS-}" ]]; then
+      local first_secret=true secret_path
+      secrets_json="["
+      while IFS= read -r secret_path; do
+        [[ -z "${secret_path}" ]] && continue
+        local rel_secret escaped_secret
+        rel_secret="${secret_path#"${REPO_ROOT}/"}"
+        escaped_secret="$(json_escape "${rel_secret}")"
+        if [[ "${first_secret}" == "true" ]]; then
+          secrets_json="${secrets_json}\"${escaped_secret}\""
+          first_secret=false
+        else
+          secrets_json="${secrets_json}, \"${escaped_secret}\""
+        fi
+      done <<<"${FLAGGED_PATHS}"
+      secrets_json="${secrets_json}]"
+    fi
+    printf '  "secrets_excluded": %s,\n' "${secrets_json}"
+  fi
+  printf '  "chunks": [\n'
+  printf '%b\n' "${chunk_json}"
+  printf '  ],\n'
+  printf '  "exit_code": %d\n' "${EXIT_CODE}"
+  printf '}\n'
+}
+
+# ---------------------------------------------------------------------------
+# Phase 8: Remote Repos
+# ---------------------------------------------------------------------------
+
+# _normalise_url URL
+# Expand bare hostnames (github.com/user/repo) to HTTPS URLs.
+_normalise_url() {
+  local url="${1}"
+  case "${url}" in
+  github.com/*) url="https://${url}" ;;
+  gitlab.com/*) url="https://${url}" ;;
+  bitbucket.org/*) url="https://${url}" ;;
+  esac
+  printf '%s' "${url}"
+}
+
+# cleanup_remote_clone
+# Registered with register_cleanup; removes the temp clone directory.
+cleanup_remote_clone() {
+  [[ -n "${CLONE_TEMP_DIR}" ]] && rm -rf -- "${CLONE_TEMP_DIR}"
+}
+
+# clone_remote URL
+# Shallow-clone URL into a temp dir with hook/symlink hardening.
+# Sets REPO_ROOT, REPO_NAME, REMOTE_REPO, and OUTPUT_DIR (if not set).
+clone_remote() {
+  local url
+  url="$(_normalise_url "${1}")"
+  USER_CWD="$(pwd)"
+
+  CLONE_TEMP_DIR="$(mktemp -d)"
+  register_cleanup cleanup_remote_clone
+
+  info "${SUN_2}${SYM_ARROW}${RESET} Cloning ${url} ..."
+
+  # --config core.hooksPath=/dev/null disables all hooks (prevents malicious
+  # code execution during clone). --config core.symlinks=false writes symlinks
+  # as plain text files on all platforms, preventing actual symlink creation.
+  if ! git clone --depth 1 --single-branch \
+    --config core.hooksPath=/dev/null \
+    --config core.symlinks=false \
+    -- "${url}" "${CLONE_TEMP_DIR}" 2>&1; then
+    die 5 "Failed to clone: ${url}
+Check the URL is correct and you have access.
+Private repos require authentication (SSH key or credential helper)."
+  fi
+
+  # Post-clone symlink safety: remove any symlinks that survived the clone.
+  local lnk
+  while IFS= read -r lnk; do
+    warn "Removing potentially unsafe symlink: ${lnk}"
+    rm -f -- "${lnk}"
+  done < <(find "${CLONE_TEMP_DIR}" -type l 2>/dev/null)
+
+  # Second-pass verification: abort if any symlinks remain after the sweep.
+  local remaining_lnk
+  remaining_lnk="$(find "${CLONE_TEMP_DIR}" -type l 2>/dev/null | head -1)"
+  if [[ -n "${remaining_lnk}" ]]; then
+    die 5 "Unsafe symlinks survived post-clone cleanup — aborting to prevent symlink traversal."
+  fi
+
+  REPO_ROOT="${CLONE_TEMP_DIR}"
+  REPO_NAME="$(basename "${url%.git}" | tr ' ' '_' | tr -cd 'A-Za-z0-9._-')"
+  REPO_NAME="${REPO_NAME:-repo}"
+  REMOTE_REPO=true
+
+  # Default output to user's original working directory.
+  if [[ -z "${OUTPUT_DIR}" ]]; then
+    OUTPUT_DIR="${USER_CWD}/_smooshes"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Phase 7: Interactive Mode
+# ---------------------------------------------------------------------------
+
+# Scan category globals — populated by scan_repo_types().
+SCAN_DOCS_COUNT=0
+SCAN_CODE_COUNT=0
+SCAN_CONFIG_COUNT=0
+SCAN_OTHER_COUNT=0
+SCAN_DOCS_EXTS=""
+SCAN_CODE_EXTS=""
+SCAN_CONFIG_EXTS=""
+SCAN_OTHER_EXTS=""
+SCAN_TOTAL=0
+
+# Config/data file extensions for interactive categorisation.
+# (Separate from CODE_EXTS_EXTRA which includes them for processing purposes.)
+readonly SCAN_CONFIG_EXT_LIST="json yaml yml toml ini cfg conf lock env"
+
+# is_interactive
+# Returns 0 (true) when all of: stdin is TTY, stdout is TTY, zero original
+# arguments were supplied, and --no-interactive was not set.
+is_interactive() {
+  [[ -t 0 ]] && [[ -t 1 ]] && [[ "${ORIG_ARGC}" -eq 0 ]] && [[ "${NO_INTERACTIVE}" != "true" ]]
+}
+
+# classify_file_ext EXT
+# Prints the category (docs|code|config|other) for a file extension.
+classify_file_ext() {
+  local ext="${1}"
+  [[ -z "${ext}" ]] && {
+    printf 'other'
+    return
+  }
+  case " ${DOCS_EXTS} " in
+  *" ${ext} "*)
+    printf 'docs'
+    return
+    ;;
+  esac
+  case " ${SCAN_CONFIG_EXT_LIST} " in
+  *" ${ext} "*)
+    printf 'config'
+    return
+    ;;
+  esac
+  case " ${CODE_EXTS_EXTRA} " in
+  *" ${ext} "*)
+    printf 'code'
+    return
+    ;;
+  esac
+  printf 'other'
+}
+
+# _scan_add_ext CATEGORY EXT
+# Append EXT to the SCAN_*_EXTS string for CATEGORY, if not already present.
+_scan_add_ext() {
+  local cat="${1}" ext="${2}"
+  case "${cat}" in
+  docs)
+    case " ${SCAN_DOCS_EXTS} " in
+    *" ${ext} "*) ;;
+    *) SCAN_DOCS_EXTS="${SCAN_DOCS_EXTS} ${ext}" ;;
+    esac
+    ;;
+  code)
+    case " ${SCAN_CODE_EXTS} " in
+    *" ${ext} "*) ;;
+    *) SCAN_CODE_EXTS="${SCAN_CODE_EXTS} ${ext}" ;;
+    esac
+    ;;
+  config)
+    case " ${SCAN_CONFIG_EXTS} " in
+    *" ${ext} "*) ;;
+    *) SCAN_CONFIG_EXTS="${SCAN_CONFIG_EXTS} ${ext}" ;;
+    esac
+    ;;
+  *)
+    case " ${SCAN_OTHER_EXTS} " in
+    *" ${ext} "*) ;;
+    *) SCAN_OTHER_EXTS="${SCAN_OTHER_EXTS} ${ext}" ;;
+    esac
+    ;;
+  esac
+}
+
+# scan_repo_types
+# Scan REPO_ROOT with git ls-files; classify each file by extension.
+# Populates SCAN_*_COUNT, SCAN_*_EXTS, SCAN_TOTAL globals.
+scan_repo_types() {
+  SCAN_DOCS_COUNT=0
+  SCAN_CODE_COUNT=0
+  SCAN_CONFIG_COUNT=0
+  SCAN_OTHER_COUNT=0
+  SCAN_DOCS_EXTS=""
+  SCAN_CODE_EXTS=""
+  SCAN_CONFIG_EXTS=""
+  SCAN_OTHER_EXTS=""
+  SCAN_TOTAL=0
+
+  local output_dir_prefix="${OUTPUT_DIR:-_smooshes}"
+  # Strip REPO_ROOT prefix if OUTPUT_DIR is an absolute path inside the repo.
+  if [[ "${output_dir_prefix}" == "${REPO_ROOT}/"* ]]; then
+    output_dir_prefix="${output_dir_prefix#"${REPO_ROOT}/"}"
+  elif [[ "${output_dir_prefix}" == /* ]]; then
+    output_dir_prefix="" # absolute path outside repo; rel check won't match
+  fi
+
+  local rel
+  while IFS= read -r -d '' rel; do
+    # Skip hidden files/dirs and output directory.
+    if [[ "${INCLUDE_HIDDEN}" != "true" ]]; then
+      [[ "${rel}" == *"/."* ]] && continue
+      [[ "${rel}" == "."* ]] && continue
+    fi
+    [[ -n "${output_dir_prefix}" ]] && [[ "${rel}" == "${output_dir_prefix}/"* ]] && continue
+
+    local filename="${rel##*/}"
+    local ext="${filename##*.}"
+    [[ "${filename}" == "${ext}" ]] && ext="" # no dot → no extension
+
+    local cat
+    if [[ -z "${ext}" ]]; then
+      cat="other"
+    else
+      case " ${DOCS_EXTS} " in
+      *" ${ext} "*) cat="docs" ;;
+      *) case " ${SCAN_CONFIG_EXT_LIST} " in
+        *" ${ext} "*) cat="config" ;;
+        *) case " ${CODE_EXTS_EXTRA} " in
+          *" ${ext} "*) cat="code" ;;
+          *) cat="other" ;;
+          esac ;;
+        esac ;;
+      esac
+    fi
+    case "${cat}" in
+    docs) SCAN_DOCS_COUNT=$((SCAN_DOCS_COUNT + 1)) ;;
+    code) SCAN_CODE_COUNT=$((SCAN_CODE_COUNT + 1)) ;;
+    config) SCAN_CONFIG_COUNT=$((SCAN_CONFIG_COUNT + 1)) ;;
+    *) SCAN_OTHER_COUNT=$((SCAN_OTHER_COUNT + 1)) ;;
+    esac
+    [[ -n "${ext}" ]] && _scan_add_ext "${cat}" "${ext}"
+    SCAN_TOTAL=$((SCAN_TOTAL + 1))
+  done < <(git -C "${REPO_ROOT}" ls-files -z \
+    --cached --others --exclude-standard 2>/dev/null |
+    LC_ALL=C sort -z)
+}
+
+# _fmt_exts EXT_STRING
+# Trim leading space, return first 4 extensions separated by commas,
+# appending "+N more" if there are additional ones.
+_fmt_exts() {
+  local raw="${1# }" # strip leading space
+  local -a arr=()
+  # shellcheck disable=SC2086  # intentional word-splitting of space-separated list
+  read -ra arr <<<"${raw}"
+  local count="${#arr[@]}"
+  if [[ "${count}" -eq 0 ]]; then
+    printf '—'
+    return
+  fi
+  local shown="${arr[0]}"
+  local i
+  for i in 1 2 3; do
+    [[ "${i}" -ge "${count}" ]] && break
+    shown="${shown}, ${arr[${i}]}"
+  done
+  if [[ "${count}" -gt 4 ]]; then
+    shown="${shown} +$((count - 4)) more"
+  fi
+  printf '%s' "${shown}"
+}
+
+# show_banner
+# Print the box-drawing logo and tagline to stderr.
+show_banner() {
+  [[ "${QUIET}" == "true" ]] && return 0
+
+  # Build letter rows from box-drawing symbols:  s m o o s h
+  local T="${SYM_TL}" R="${SYM_TR}" B="${SYM_BL}" K="${SYM_BR}"
+  local H="${SYM_H}" V="${SYM_V}" J="${SYM_TJ}" U="${SYM_BJ}"
+  local L="${SYM_LJ}" P="${SYM_RJ}"
+
+  local r1="${T}${H}${R} ${T}${J}${R} ${T}${H}${R} ${T}${H}${R} ${T}${H}${R} ${J} ${J}"
+  local r2="${B}${H}${R} ${V}${V}${V} ${V} ${V} ${V} ${V} ${B}${H}${R} ${L}${H}${P}"
+  local r3="${B}${H}${K} ${U} ${U} ${B}${H}${K} ${B}${H}${K} ${B}${H}${K} ${U} ${U}"
+
+  # Outer box: dim borders, bold cyan letters.
+  local hline
+  hline="$(printf '%0.s'"${H}" $(seq 1 27))"
+
+  printf '\n' >&2
+  printf '  %b%s%s%s%b\n' "${DIM}" "${T}" "${hline}" "${R}" "${RESET}" >&2
+  printf '  %b%s%b  %b%s%b  %b%s%b\n' \
+    "${DIM}" "${V}" "${RESET}" \
+    "${BOLD}${SUN_1}" "${r1}" "${RESET}" \
+    "${DIM}" "${V}" "${RESET}" >&2
+  printf '  %b%s%b  %b%s%b  %b%s%b\n' \
+    "${DIM}" "${V}" "${RESET}" \
+    "${BOLD}${SUN_2}" "${r2}" "${RESET}" \
+    "${DIM}" "${V}" "${RESET}" >&2
+  printf '  %b%s%b  %b%s%b  %b%s%b\n' \
+    "${DIM}" "${V}" "${RESET}" \
+    "${BOLD}${SUN_3}" "${r3}" "${RESET}" \
+    "${DIM}" "${V}" "${RESET}" >&2
+  printf '  %b%s%s%s%b\n' "${DIM}" "${B}" "${hline}" "${K}" "${RESET}" >&2
+  printf '\n' >&2
+  printf '  %bOne command. Every doc. Smooshed.%b  %bv%s%b\n' \
+    "${BOLD}${SUN_2}" "${RESET}" "${DIM}" "${VERSION}" "${RESET}" >&2
+  printf '\n' >&2
+}
+
+# show_scan_table
+# Print a formatted table of repo file counts by category.
+show_scan_table() {
+  [[ "${QUIET}" == "true" ]] && return 0
+
+  local w_cat=6 w_files=5 w_exts=26
+
+  draw_top_border "${w_cat}" "${w_files}" "${w_exts}"
+  draw_row "$(printf '%b%-*s%b' "${BOLD}${SUN_1}" "${w_cat}" "Type" "${RESET}")" \
+    "$(printf '%b%*s%b' "${BOLD}${SUN_1}" "${w_files}" "Files" "${RESET}")" \
+    "$(printf '%b%-*s%b' "${BOLD}${SUN_1}" "${w_exts}" "Extensions" "${RESET}")"
+  draw_separator "${w_cat}" "${w_files}" "${w_exts}"
+
+  local docs_exts code_exts config_exts other_exts
+  docs_exts="$(_fmt_exts "${SCAN_DOCS_EXTS}")"
+  code_exts="$(_fmt_exts "${SCAN_CODE_EXTS}")"
+  config_exts="$(_fmt_exts "${SCAN_CONFIG_EXTS}")"
+  other_exts="$(_fmt_exts "${SCAN_OTHER_EXTS}")"
+
+  if [[ "${SCAN_DOCS_COUNT}" -gt 0 ]]; then
+    draw_row "$(printf '%b%-*s%b' "${SUN_2}" "${w_cat}" "Docs" "${RESET}")" \
+      "$(printf '%*s' "${w_files}" "${SCAN_DOCS_COUNT}")" \
+      "$(printf '%b%-*s%b' "${DIM}" "${w_exts}" "${docs_exts}" "${RESET}")"
+  fi
+  if [[ "${SCAN_CODE_COUNT}" -gt 0 ]]; then
+    draw_row "$(printf '%b%-*s%b' "${SUN_2}" "${w_cat}" "Code" "${RESET}")" \
+      "$(printf '%*s' "${w_files}" "${SCAN_CODE_COUNT}")" \
+      "$(printf '%b%-*s%b' "${DIM}" "${w_exts}" "${code_exts}" "${RESET}")"
+  fi
+  if [[ "${SCAN_CONFIG_COUNT}" -gt 0 ]]; then
+    draw_row "$(printf '%b%-*s%b' "${SUN_2}" "${w_cat}" "Config" "${RESET}")" \
+      "$(printf '%*s' "${w_files}" "${SCAN_CONFIG_COUNT}")" \
+      "$(printf '%b%-*s%b' "${DIM}" "${w_exts}" "${config_exts}" "${RESET}")"
+  fi
+  if [[ "${SCAN_OTHER_COUNT}" -gt 0 ]]; then
+    draw_row "$(printf '%b%-*s%b' "${SUN_2}" "${w_cat}" "Other" "${RESET}")" \
+      "$(printf '%*s' "${w_files}" "${SCAN_OTHER_COUNT}")" \
+      "$(printf '%b%-*s%b' "${DIM}" "${w_exts}" "${other_exts}" "${RESET}")"
+  fi
+
+  draw_separator "${w_cat}" "${w_files}" "${w_exts}"
+  draw_row "$(printf '%b%-*s%b' "${BOLD}${SUN_1}" "${w_cat}" "Total" "${RESET}")" \
+    "$(printf '%b%*s%b' "${BOLD}${SUN_1}" "${w_files}" "${SCAN_TOTAL}" "${RESET}")" \
+    "$(printf '%-*s' "${w_exts}" "")"
+  draw_bottom_border "${w_cat}" "${w_files}" "${w_exts}"
+  printf '\n' >&2
+}
+
+# prompt_choice PROMPT DEFAULT
+# Print PROMPT to stderr, read a line; return DEFAULT if empty.
+prompt_choice() {
+  local prompt="${1}" default="${2:-}"
+  printf '  %s ' "${prompt}" >&2
+  local input=""
+  IFS= read -r input
+  if [[ -z "${input}" ]]; then
+    printf '%s' "${default}"
+  else
+    printf '%s' "${input}"
+  fi
+}
+
+# interactive_menu
+# Present numbered choices, read selection, set MODE (and ONLY_PATTERNS for
+# custom). Prints the equivalent CLI command as a tip.
+interactive_menu() {
+  printf '  What would you like to process?\n\n' >&2
+  printf '  %b[1]%b Docs only      %b(md, rst, txt, ...)%b   %bsmoosh%b\n' \
+    "${BOLD}${SUN_1}" "${RESET}" "${DIM}" "${RESET}" "${SUN_2}" "${RESET}" >&2
+  printf '  %b[2]%b Docs + Code    %b(+ py, js, ts, ...)%b   %bsmoosh --code%b\n' \
+    "${BOLD}${SUN_1}" "${RESET}" "${DIM}" "${RESET}" "${SUN_2}" "${RESET}" >&2
+  printf '  %b[3]%b Everything     %b(all text files)%b      %bsmoosh --all%b\n' \
+    "${BOLD}${SUN_1}" "${RESET}" "${DIM}" "${RESET}" "${SUN_2}" "${RESET}" >&2
+  printf '  %b[4]%b Custom extensions\n' "${BOLD}${SUN_1}" "${RESET}" >&2
+  printf '\n' >&2
+
+  local choice
+  choice="$(prompt_choice "Choice [1]:" "1")"
+
+  # Validate — accept 1-4, default to 1 on anything else.
+  case "${choice}" in
+  1 | "") MODE="docs" ;;
+  2) MODE="code" ;;
+  3) MODE="all" ;;
+  4)
+    printf '\n  Extensions (comma-separated, e.g. py,js,ts): ' >&2
+    local exts=""
+    IFS= read -r exts
+    ONLY_PATTERNS="${exts}"
+    MODE="docs" # base; --only overrides in resolve_extensions
+    ;;
+  *) MODE="docs" ;;
+  esac
+
+  printf '\n' >&2
+  local tip_cmd="smoosh"
+  case "${MODE}" in
+  code) tip_cmd="smoosh --code" ;;
+  all) tip_cmd="smoosh --all" ;;
+  esac
+  if [[ -n "${ONLY_PATTERNS}" ]]; then
+    tip_cmd="smoosh --only '${ONLY_PATTERNS}'"
+  fi
+  info "  ${SUN_2}${SYM_ARROW}${RESET} Tip: next time, run: ${BOLD}${SUN_2}${tip_cmd}${RESET}"
+  printf '\n' >&2
+}
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+# ORIG_ARGC: saved in main() before parse_args — used by is_interactive().
+ORIG_ARGC=0
+
+main() {
+  ORIG_ARGC="${#}"
+  # Argument parsing first (may call show_help/show_version and exit early).
+  parse_args ${1+"${@}"}
+
+  # Now set up visuals — after --no-color has been parsed.
+  setup_colours
+  setup_symbols
+
+  # Phase 3: discovery — resolve_target is always needed first.
+  resolve_target
+
+  # Phase 7: interactive mode (TTY + zero original args + no --no-interactive).
+  if is_interactive; then
+    show_banner
+    scan_repo_types
+    show_scan_table
+    interactive_menu
+  fi
+
+  resolve_extensions
+  discover_files
+
+  if [[ "${#FILES[@]}" -eq 0 ]]; then
+    die 3 "No matching files found in ${REPO_ROOT}
+Try --code for code files, --all for everything, or --include to add extensions."
+  fi
+
+  # Pre-computation runs before dry_run check so --dry-run shows word counts.
+  batch_word_counts
+  batch_mime_check # no-op unless --all mode
+  scan_secrets     # rebuilds FILES/WORD_COUNTS; no-op if --no-check-secrets
+  compute_chunk_assignments
+
+  if [[ "${DRY_RUN}" == "true" ]]; then
+    dry_run_preview # delegates to output_json when --json
+    exit 0
+  fi
+
+  # Phase 4: output generation
+  ensure_output_dir
+  process_files
+  verify_output
+
+  if [[ "${JSON_OUTPUT}" == "true" ]]; then
+    output_json
+  else
+    show_summary
+  fi
+
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main ${1+"${@}"}
+fi

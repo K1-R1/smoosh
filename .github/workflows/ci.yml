@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Principle of least privilege — read-only by default.
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # tag: v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install ShellCheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Run ShellCheck
+        run: shellcheck --severity=warning smoosh install.sh
+
+      - name: Install shfmt
+        run: |
+          curl -fsSL "https://github.com/mvdan/sh/releases/download/v3.13.0/shfmt_v3.13.0_linux_amd64" \
+            -o /usr/local/bin/shfmt
+          chmod +x /usr/local/bin/shfmt
+
+
+      - name: Run shfmt
+        run: shfmt -d -i 2 smoosh
+
+      - name: Install actionlint
+        run: |
+          # URL pinned to commit SHA for v1.7.11 (immutable, no tag-move risk).
+          curl -fsSL "https://raw.githubusercontent.com/rhysd/actionlint/393031adb9afb225ee52ae2ccd7a5af5525e03e8/scripts/download-actionlint.bash" | bash -s -- 1.7.11
+          sudo mv actionlint /usr/local/bin/
+
+      - name: Run actionlint
+        run: actionlint .github/workflows/ci.yml .github/workflows/release.yml
+
+      - name: Install zizmor
+        run: pip install zizmor==1.23.1 --quiet
+
+      - name: Run zizmor
+        run: zizmor --no-exit-codes .github/workflows/ci.yml .github/workflows/release.yml
+
+  test:
+    name: Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # tag: v6.0.2
+        with:
+          submodules: true
+          persist-credentials: false
+
+      - name: Install bats
+        run: |
+          git clone --depth 1 --branch v1.13.0 https://github.com/bats-core/bats-core.git "$RUNNER_TEMP/bats"
+          "$RUNNER_TEMP/bats/install.sh" "$RUNNER_TEMP/bats-install"
+          echo "$RUNNER_TEMP/bats-install/bin" >> "$GITHUB_PATH"
+
+      - name: Run tests
+        env:
+          TERM: xterm-256color
+        run: bats test/*.bats
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-22.04  # kcov not packaged for ubuntu-24.04 (noble)
+    needs: lint
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # tag: v6.0.2
+        with:
+          submodules: true
+          persist-credentials: false
+
+      - name: Install bats
+        run: |
+          git clone --depth 1 --branch v1.13.0 https://github.com/bats-core/bats-core.git "$RUNNER_TEMP/bats"
+          "$RUNNER_TEMP/bats/install.sh" "$RUNNER_TEMP/bats-install"
+          echo "$RUNNER_TEMP/bats-install/bin" >> "$GITHUB_PATH"
+
+      - name: Install kcov
+        run: sudo apt-get install -y kcov
+
+      - name: Run tests under kcov
+        env:
+          TERM: xterm-256color
+        run: |
+          kcov \
+            --include-path="${GITHUB_WORKSPACE}/smoosh" \
+            --bash-dont-parse-binary-dir \
+            "${GITHUB_WORKSPACE}/coverage" \
+            bats test/*.bats
+
+      - name: Report coverage
+        run: |
+          # Print summary from kcov's JSON report.
+          summary="${GITHUB_WORKSPACE}/coverage/bats/coverage.json"
+          if [[ -f "${summary}" ]]; then
+            cat "${summary}"
+          else
+            echo "No coverage.json found — check kcov output path."
+          fi
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # tag: v7.0.0
+        with:
+          name: coverage-report
+          path: coverage/

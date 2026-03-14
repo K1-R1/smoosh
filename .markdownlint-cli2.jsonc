@@ -1,0 +1,23 @@
+{
+    // Rule configuration for markdownlint-cli2.
+    // Full rule reference: https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+    "config": {
+        "default": true,
+
+        // MD007: 2-space sub-list indentation — CommonMark standard.
+        "MD007": { "indent": 2 },
+
+        // MD013: Disabled — README and docs contain wide tables and long URLs.
+        "MD013": false,
+
+        // MD033: Allow specific HTML — README uses <div align="center"> for header.
+        "MD033": { "allowed_elements": ["div", "br"] },
+
+        // MD036: Disabled — bold lines are used for step headings in the walkthrough.
+        "MD036": false,
+
+        // MD041: Disabled — README starts with <div> not a heading.
+        "MD041": false
+    },
+    "ignores": ["docs/plans/**", "_smooshes/**", "node_modules/**", "test/test_helper/bats-*/**"]
+}

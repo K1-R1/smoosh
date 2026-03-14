@@ -1,0 +1,152 @@
+# smoosh — project dictionary (en-GB)
+# One word per line. Sorted alphabetically within each section.
+
+# Project name and terminology
+megafile
+smoosh
+smooshed
+smooshing
+smooshes
+smooshrc
+
+# CLI flags and identifiers (appear in prose)
+actionlint
+bats
+cspell
+dotfiles
+gitignore
+gitignored
+gitleaks
+kcov
+markdownlint
+prek
+shellcheck
+shfmt
+truffleHog
+zizmor
+
+# Technical terms
+CDATA
+CLI
+codebase
+codebases
+coreutils
+dotdirs
+ERE
+fnmatch
+getopt
+HTTPS
+metacharacters
+multibyte
+numfmt
+POSIX
+regex
+SHA256
+stderr
+stdin
+stdout
+submodule
+submodules
+toplevel
+truecolor
+TTY
+UTF-8
+worktrees
+
+# File formats and extensions
+adoc
+AsciiDoc
+asciidoc
+cljc
+JSONC
+Mermaid
+sass
+tfvars
+
+# Platforms and services
+ChatGPT
+Coveralls
+GitHub
+Homebrew
+macOS
+NotebookLM
+VHS
+WSL
+
+# RAG and AI terms
+RAG
+
+# People and proper nouns (contributors, plan references)
+abubakar
+charmbracelet
+K1-R1
+Kyran
+mislav
+Raiza
+raiza
+stevenbjohnson
+
+# Tools referenced in docs, plan, and CI
+ludeeus
+pyragify
+Repomix
+rustup
+Secretlint
+stitchmd
+trufflehog
+
+# Miscellaneous words cspell may not know
+artefact
+artefacts
+chunked
+linters
+math
+nonexistent
+onboarding
+overengineered
+uncommitted
+untracked
+urandom
+
+# Shell/bash keywords and builtins
+elif
+esac
+mktemp
+pipefail
+
+# Colour/terminal variables (standard env var names)
+CLICOLOR
+COLORTERM
+Colorful
+color
+gpgsign
+xterm
+
+# Bats test framework
+teardown
+
+# Bash 3.2 compatibility terms (referenced in docs)
+mapfile
+readarray
+
+# ShellCheck directives and terms
+nullary
+SCRIPTDIR
+SCXXXX
+
+# Variable name fragments used in smoosh source
+# (short abbreviations for local variables — not misspellings)
+AKIA
+Blbk
+bpars
+bsmoosh
+cpath
+dont
+excl
+glpat
+hline
+nonmd
+odir
+PROC
+quot
+vars

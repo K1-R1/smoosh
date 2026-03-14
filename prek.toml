@@ -1,0 +1,54 @@
+#:schema https://www.schemastore.org/prek.json
+# Run `prek install` once to activate as a git pre-commit hook.
+# Run `prek run --all-files` to check the full corpus manually.
+#
+# Maintenance: versions are pinned. Check for updates quarterly:
+#   markdownlint-cli2 — https://github.com/DavidAnson/markdownlint-cli2/releases
+#   cspell            — https://github.com/streetsidesoftware/cspell/releases
+
+[[repos]]
+repo = "builtin"
+hooks = [
+    { id = "trailing-whitespace" },
+    { id = "end-of-file-fixer" },
+    { id = "check-added-large-files" },
+]
+
+# Markdown linter — auto-fixes what it can (list markers, blank lines, table spacing, etc.)
+[[repos]]
+repo = "https://github.com/DavidAnson/markdownlint-cli2"
+rev = "v0.21.0"
+hooks = [
+    { id = "markdownlint-cli2", args = ["--fix"] },
+]
+
+# Spell checker — British English, reports only (no auto-fix)
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "cspell"
+name = "Spell check (en-GB)"
+entry = "cspell lint --no-progress --no-summary --no-must-find-files --config cspell.json"
+language = "node"
+additional_dependencies = ["cspell@9"]
+types = ["text"]
+pass_filenames = true
+
+# ShellCheck — lint bash scripts
+[[repos.hooks]]
+id = "shellcheck"
+name = "ShellCheck"
+entry = "shellcheck"
+language = "system"
+types = ["bash"]
+pass_filenames = true
+
+# shfmt — format check bash scripts (2-space indent)
+[[repos.hooks]]
+id = "shfmt"
+name = "shfmt"
+entry = "shfmt -d -i 2"
+language = "system"
+types = ["bash"]
+pass_filenames = true

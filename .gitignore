@@ -1,0 +1,34 @@
+# smoosh output
+_smooshes/
+
+# worktrees
+.claude/worktrees/
+.worktrees/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# editors
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.code-workspace
+
+# Claude Code local settings (not for public consumption)
+.claude/settings.local.json
+
+# internal planning artefacts (not for public consumption)
+docs/
+todos/
+.supply-chain-risk-auditor/
+
+# environment variables
+.env
+.env.*
+
+# test artefacts
+/tmp/

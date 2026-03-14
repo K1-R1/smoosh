@@ -1,0 +1,26 @@
+{
+    "$schema": "https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json",
+    "version": "0.2",
+    "language": "en-GB",
+    "useGitignore": true,
+    "dictionaryDefinitions": [
+        {
+            "name": "project-words",
+            "path": "./cspell-project-words.txt",
+            "addWords": true
+        }
+    ],
+    "dictionaries": ["project-words", "bash", "shell", "softwareTerms"],
+    "ignorePaths": [
+        ".git/**",
+        ".claude/**",
+        "test/test_helper/bats-*/**",
+        "node_modules/**",
+        "cspell-project-words.txt"
+    ],
+    "ignoreRegExpList": [
+        "/AKIA[A-Z0-9]+/g",
+        "/ghp_[a-zA-Z0-9]+/g",
+        "/AKIAIOSFODNN7EXAMPLE/g"
+    ]
+}

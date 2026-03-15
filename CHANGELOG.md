@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-03-15
+
+### Fixed
+
+- `install.sh` now aborts (exit 1) when the `.sha256` checksum file is absent,
+  rather than warning and continuing with an unverified binary. Set
+  `SMOOSH_NO_VERIFY=1` to opt out in restricted environments.
+- `--all` mode now exits with a clear error when the `file` command is not
+  found, rather than silently including all files without MIME filtering.
+- Exit codes 4 and 130 added to `--help` output (were documented in README
+  but missing from the inline reference).
+
+### Added
+
+- 30 golden file tests covering byte-for-byte output across all mode and
+  format combinations (`test/smoosh_golden.bats`).
+- `test/ACCEPTANCE.md` — manual acceptance test scenarios for interactive
+  mode, remote repos, AI tool integrations, and secrets detection.
+- `MAINTAINING.md` — operational guide covering release procedure, pinned
+  dependency inventory, and periodic maintenance schedule.
+- Bash 3.2 syntax-check CI job on macOS (`/bin/bash -n smoosh`).
+- Dependabot configured for monthly GitHub Actions SHA updates.
+
+### Changed
+
+- CI and release workflow install shfmt via `go install` (Go module sum
+  database) instead of a raw binary download, which had no integrity check.
+- Demo GIFs and VHS tape moved to `assets/` directory.
+
 ## [1.0.0] - 2026-03-14
 
 ### Added
@@ -32,5 +61,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Output path shown relative to repo root
 - Demo recordings: interactive mode flow and power-user flags
 
-[Unreleased]: https://github.com/K1-R1/smoosh/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/K1-R1/smoosh/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/K1-R1/smoosh/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/K1-R1/smoosh/releases/tag/v1.0.0

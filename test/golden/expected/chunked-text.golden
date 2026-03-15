@@ -53,6 +53,10 @@ User Guide
 
 This guide covers the basic usage of the golden fixture project.
 See the readme for an overview of the project structure.
+--- CHUNK BOUNDARY ---
+Repository Compilation: golden-repo (Part 2)
+Generated: TIMESTAMP
+============================================================
 
 
 
@@ -108,6 +112,11 @@ File: no-newline.md
 ============================================================
 
 This file has no trailing newline at the end.
+--- CHUNK BOUNDARY ---
+Repository Compilation: golden-repo (Part 3)
+Generated: TIMESTAMP
+============================================================
+
 
 
 ============================================================

@@ -54,6 +54,18 @@ See the readme for an overview of the project structure.
 
 ]]></content>
 </file>
+<file path="it's-fine.md">
+<content><![CDATA[# It's Fine
+
+This file's name contains an apostrophe.
+It tests filename quoting in shell pipelines.
+# It's Fine
+
+This file's name contains an apostrophe.
+It tests filename quoting in shell pipelines.
+
+]]></content>
+</file>
 <file path="journal.org">
 <content><![CDATA[#+TITLE: Project Journal
 #+DATE: 2026-01-01
@@ -83,6 +95,16 @@ Refer to the guide for usage instructions and the readme for an overview.
 
 This manual describes the technical details of the golden fixture project.
 Refer to the guide for usage instructions and the readme for an overview.
+
+]]></content>
+</file>
+<file path="my notes.md">
+<content><![CDATA[# My Notes
+
+This file name contains a space to test path handling.
+# My Notes
+
+This file name contains a space to test path handling.
 
 ]]></content>
 </file>

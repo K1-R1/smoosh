@@ -104,6 +104,17 @@ module.exports = { VERSION, greet };
 
 
 ---
+### File: it's-fine.md
+---
+
+# It's Fine
+
+This file's name contains an apostrophe.
+It tests filename quoting in shell pipelines.
+
+
+
+---
 ### File: journal.org
 ---
 
@@ -145,6 +156,16 @@ func main() {
 
 This manual describes the technical details of the golden fixture project.
 Refer to the guide for usage instructions and the readme for an overview.
+
+
+
+---
+### File: my notes.md
+---
+
+# My Notes
+
+This file name contains a space to test path handling.
 
 
 

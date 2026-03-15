@@ -1,0 +1,13 @@
+{
+  "repo": "golden-repo",
+  "output_dir": "OUTPUT_DIR",
+  "files_processed": 17,
+  "total_words": 437,
+  "estimated_tokens": 568,
+  "verified": true,
+  "secrets_excluded": ["aws-creds.py"],
+  "chunks": [
+    {"path": "OUTPUT_DIR/TIMESTAMP_golden-repo_part1.md", "words": 437}
+  ],
+  "exit_code": 0
+}

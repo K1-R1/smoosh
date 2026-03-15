@@ -59,6 +59,17 @@ Generated: TIMESTAMP
 
 
 ---
+### File: it's-fine.md
+---
+
+# It's Fine
+
+This file's name contains an apostrophe.
+It tests filename quoting in shell pipelines.
+
+
+
+---
 ### File: journal.org
 ---
 
@@ -85,10 +96,24 @@ Refer to the guide for usage instructions and the readme for an overview.
 
 
 ---
+### File: my notes.md
+---
+
+# My Notes
+
+This file name contains a space to test path handling.
+
+
+
+---
 ### File: no-newline.md
 ---
 
 This file has no trailing newline at the end.
+--- CHUNK BOUNDARY ---
+# Repository Compilation: golden-repo (Part 3)
+Generated: TIMESTAMP
+
 
 
 ---

@@ -1,20 +1,22 @@
 
-Dry run — 10 file(s) matched in golden-repo
+Dry run — 12 file(s) matched in golden-repo
 
   • README.md                                            21 words
   • cdata-break.md                                       25 words
   • deep/nested/path/doc.md                              27 words
   • empty.md                                             0 words
   • guide.rst                                            24 words
+  • it's-fine.md                                         16 words
   • journal.org                                          24 words
   • manual.adoc                                          29 words
+  • my notes.md                                          13 words
   • no-newline.md                                        9 words
   • notes.txt                                            22 words
   • paper.tex                                            15 words
 
-  Files : 10
-  Words : 196
-  Tokens: ~254
+  Files : 12
+  Words : 225
+  Tokens: ~292
   Chunks: ~1
 
 Run without --dry-run to generate output.

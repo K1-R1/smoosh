@@ -1,25 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <smoosh repo="golden-repo" part="1" generated="TIMESTAMP">
-<toc>
-  <entry num="1" path="README.md" words="21"/>
-  <entry num="2" path="app.py" words="28"/>
-  <entry num="3" path="cdata-break.md" words="25"/>
-  <entry num="4" path="deep/nested/path/doc.md" words="27"/>
-  <entry num="5" path="empty.md" words="0"/>
-  <entry num="6" path="guide.rst" words="24"/>
-  <entry num="7" path="index.js" words="24"/>
-  <entry num="8" path="it's-fine.md" words="16"/>
-  <entry num="9" path="journal.org" words="24"/>
-  <entry num="10" path="main.go" words="25"/>
-  <entry num="11" path="manual.adoc" words="29"/>
-  <entry num="12" path="my notes.md" words="13"/>
-  <entry num="13" path="no-newline.md" words="9"/>
-  <entry num="14" path="notes.txt" words="22"/>
-  <entry num="15" path="package.json" words="11"/>
-  <entry num="16" path="paper.tex" words="15"/>
-  <entry num="17" path="src/lib.rs" words="29"/>
-  <summary files="17" words="342"/>
-</toc>
 <file path="README.md">
 <content><![CDATA[# Golden Repo
 
@@ -29,32 +9,6 @@ It contains files that exercise every smoosh capability.
 
 This is the readme for the golden test fixture repository.
 It contains files that exercise every smoosh capability.
-
-]]></content>
-</file>
-<file path="app.py">
-<content><![CDATA["""Golden fixture Python module."""
-
-
-def greet(name):
-    """Return a greeting string."""
-    return "Hello, " + name
-
-
-def add(a, b):
-    """Return the sum of two numbers."""
-    return a + b
-"""Golden fixture Python module."""
-
-
-def greet(name):
-    """Return a greeting string."""
-    return "Hello, " + name
-
-
-def add(a, b):
-    """Return the sum of two numbers."""
-    return a + b
 
 ]]></content>
 </file>
@@ -100,28 +54,10 @@ See the readme for an overview of the project structure.
 
 ]]></content>
 </file>
-<file path="index.js">
-<content><![CDATA[// Golden fixture JavaScript module.
-
-const VERSION = '1.0.0';
-
-function greet(name) {
-  return 'Hello, ' + name;
-}
-
-module.exports = { VERSION, greet };
-// Golden fixture JavaScript module.
-
-const VERSION = '1.0.0';
-
-function greet(name) {
-  return 'Hello, ' + name;
-}
-
-module.exports = { VERSION, greet };
-
-]]></content>
-</file>
+</smoosh>
+--- CHUNK BOUNDARY ---
+<?xml version="1.0" encoding="UTF-8"?>
+<smoosh repo="golden-repo" part="2" generated="TIMESTAMP">
 <file path="it's-fine.md">
 <content><![CDATA[# It's Fine
 
@@ -149,34 +85,6 @@ Each entry records a notable event during development.
 
 This org file documents the golden fixture project history.
 Each entry records a notable event during development.
-
-]]></content>
-</file>
-<file path="main.go">
-<content><![CDATA[// Golden fixture Go program.
-package main
-
-import "fmt"
-
-func greet(name string) string {
-	return "Hello, " + name
-}
-
-func main() {
-	fmt.Println(greet("world"))
-}
-// Golden fixture Go program.
-package main
-
-import "fmt"
-
-func greet(name string) string {
-	return "Hello, " + name
-}
-
-func main() {
-	fmt.Println(greet("world"))
-}
 
 ]]></content>
 </file>
@@ -208,6 +116,10 @@ This file name contains a space to test path handling.
 <content><![CDATA[This file has no trailing newline at the end.This file has no trailing newline at the end.
 ]]></content>
 </file>
+</smoosh>
+--- CHUNK BOUNDARY ---
+<?xml version="1.0" encoding="UTF-8"?>
+<smoosh repo="golden-repo" part="3" generated="TIMESTAMP">
 <file path="notes.txt">
 <content><![CDATA[Release notes for golden fixture project.
 
@@ -217,20 +129,6 @@ Release notes for golden fixture project.
 
 Version one introduces the initial set of fixture files.
 These files exercise smoosh output format correctness.
-
-]]></content>
-</file>
-<file path="package.json">
-<content><![CDATA[{
-  "name": "golden-fixture",
-  "version": "1.0.0",
-  "description": "Golden test fixture package"
-}
-{
-  "name": "golden-fixture",
-  "version": "1.0.0",
-  "description": "Golden test fixture package"
-}
 
 ]]></content>
 </file>
@@ -247,28 +145,6 @@ This paper describes the golden fixture test repository.
 \maketitle
 This paper describes the golden fixture test repository.
 \end{document}
-
-]]></content>
-</file>
-<file path="src/lib.rs">
-<content><![CDATA[// Golden fixture Rust library.
-
-pub fn greet(name: &str) -> String {
-    format!("Hello, {}!", name)
-}
-
-pub fn add(a: i32, b: i32) -> i32 {
-    a + b
-}
-// Golden fixture Rust library.
-
-pub fn greet(name: &str) -> String {
-    format!("Hello, {}!", name)
-}
-
-pub fn add(a: i32, b: i32) -> i32 {
-    a + b
-}
 
 ]]></content>
 </file>

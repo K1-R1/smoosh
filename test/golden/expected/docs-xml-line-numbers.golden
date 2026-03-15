@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<smoosh repo="golden-repo" part="1" generated="TIMESTAMP">
+<file path="README.md">
+<content><![CDATA[0001 | # Golden Repo
+0002 | 
+0003 | This is the readme for the golden test fixture repository.
+0004 | It contains files that exercise every smoosh capability.
+
+]]></content>
+</file>
+<file path="cdata-break.md">
+<content><![CDATA[0001 | # CDATA Edge Case
+0002 | 
+0003 | This file contains the sequence ]]]]><![CDATA[> which breaks CDATA sections.
+0004 | The sequence ]]]]><![CDATA[> must be escaped to ]]]]]]><![CDATA[><\![CDATA[> in XML output.
+
+]]></content>
+</file>
+<file path="deep/nested/path/doc.md">
+<content><![CDATA[0001 | # Deeply Nested Document
+0002 | 
+0003 | This document lives at a deeply nested path to test path handling.
+0004 | smoosh should include this file with its full relative path preserved.
+
+]]></content>
+</file>
+<file path="empty.md">
+<content><![CDATA[
+]]></content>
+</file>
+<file path="guide.rst">
+<content><![CDATA[0001 | User Guide
+0002 | ==========
+0003 | 
+0004 | This guide covers the basic usage of the golden fixture project.
+0005 | See the readme for an overview of the project structure.
+
+]]></content>
+</file>
+<file path="it's-fine.md">
+<content><![CDATA[0001 | # It's Fine
+0002 | 
+0003 | This file's name contains an apostrophe.
+0004 | It tests filename quoting in shell pipelines.
+
+]]></content>
+</file>
+<file path="journal.org">
+<content><![CDATA[0001 | #+TITLE: Project Journal
+0002 | #+DATE: 2026-01-01
+0003 | 
+0004 | * Overview
+0005 | 
+0006 | This org file documents the golden fixture project history.
+0007 | Each entry records a notable event during development.
+
+]]></content>
+</file>
+<file path="manual.adoc">
+<content><![CDATA[0001 | = Technical Manual
+0002 | :doctype: article
+0003 | 
+0004 | This manual describes the technical details of the golden fixture project.
+0005 | Refer to the guide for usage instructions and the readme for an overview.
+
+]]></content>
+</file>
+<file path="my notes.md">
+<content><![CDATA[0001 | # My Notes
+0002 | 
+0003 | This file name contains a space to test path handling.
+
+]]></content>
+</file>
+<file path="no-newline.md">
+<content><![CDATA[0001 | This file has no trailing newline at the end.
+]]></content>
+</file>
+<file path="notes.txt">
+<content><![CDATA[0001 | Release notes for golden fixture project.
+0002 | 
+0003 | Version one introduces the initial set of fixture files.
+0004 | These files exercise smoosh output format correctness.
+
+]]></content>
+</file>
+<file path="paper.tex">
+<content><![CDATA[0001 | \documentclass{article}
+0002 | \title{Golden Fixture Paper}
+0003 | \begin{document}
+0004 | \maketitle
+0005 | This paper describes the golden fixture test repository.
+0006 | \end{document}
+
+]]></content>
+</file>
+</smoosh>

@@ -23,6 +23,12 @@ setup_file() {
   # The fixture files in GOLDEN_SRC are plain source files (no .git/);
   # we create the git repo here at test time.
   cp -r "${GOLDEN_SRC}/." "${GOLDEN_REPO}/"
+
+  # Create a symlink to exercise the symlink exclusion code path (line 642
+  # in smoosh). Created at test time rather than in the fixture directory
+  # because git's core.symlinks setting varies across platforms.
+  ln -s README.md "${GOLDEN_REPO}/link-to-readme"
+
   git -C "${GOLDEN_REPO}" init -q
   git -C "${GOLDEN_REPO}" config user.email "test@example.com"
   git -C "${GOLDEN_REPO}" config user.name "Test"
@@ -89,6 +95,24 @@ golden_compare() {
   fi
 }
 
+# _concat_chunks EXT — concatenate chunk files with boundary markers.
+# Bash 3.2-compatible: uses find + while loop instead of mapfile.
+_concat_chunks() {
+  local ext="${1}"
+  local result="" first=true chunk_file
+  while IFS= read -r chunk_file; do
+    if [[ "${first}" == "true" ]]; then
+      first=false
+    else
+      result="${result}
+--- CHUNK BOUNDARY ---
+"
+    fi
+    result="${result}$(cat "${chunk_file}")"
+  done < <(find "${GOLDEN_OUT}" -maxdepth 1 -name "*.${ext}" | LC_ALL=C sort)
+  printf '%s' "${result}"
+}
+
 # ---------------------------------------------------------------------------
 # Docs mode — all three output formats
 # ---------------------------------------------------------------------------
@@ -115,7 +139,7 @@ golden_compare() {
 }
 
 # ---------------------------------------------------------------------------
-# Docs mode — feature flags: TOC, line numbers, combined
+# Docs mode — feature flags: TOC, line numbers, combined (all 3 formats)
 # ---------------------------------------------------------------------------
 
 @test "golden: docs-md-toc" {
@@ -139,6 +163,41 @@ golden_compare() {
   golden_compare "docs-md-toc-line-numbers.golden" "${actual}"
 }
 
+@test "golden: docs-text-toc" {
+  smoosh --docs --no-interactive --toc --format text --output-dir "${GOLDEN_OUT}" "${GOLDEN_REPO}" >/dev/null 2>&1
+  local actual
+  actual="$(normalise "$(cat "${GOLDEN_OUT}/"*.txt)")"
+  golden_compare "docs-text-toc.golden" "${actual}"
+}
+
+@test "golden: docs-text-line-numbers" {
+  smoosh --docs --no-interactive --line-numbers --format text --output-dir "${GOLDEN_OUT}" "${GOLDEN_REPO}" >/dev/null 2>&1
+  local actual
+  actual="$(normalise "$(cat "${GOLDEN_OUT}/"*.txt)")"
+  golden_compare "docs-text-line-numbers.golden" "${actual}"
+}
+
+@test "golden: docs-text-toc-line-numbers" {
+  smoosh --docs --no-interactive --toc --line-numbers --format text --output-dir "${GOLDEN_OUT}" "${GOLDEN_REPO}" >/dev/null 2>&1
+  local actual
+  actual="$(normalise "$(cat "${GOLDEN_OUT}/"*.txt)")"
+  golden_compare "docs-text-toc-line-numbers.golden" "${actual}"
+}
+
+@test "golden: docs-xml-line-numbers" {
+  smoosh --docs --no-interactive --line-numbers --format xml --output-dir "${GOLDEN_OUT}" "${GOLDEN_REPO}" >/dev/null 2>&1
+  local actual
+  actual="$(normalise "$(cat "${GOLDEN_OUT}/"*.xml)")"
+  golden_compare "docs-xml-line-numbers.golden" "${actual}"
+}
+
+@test "golden: docs-xml-toc-line-numbers" {
+  smoosh --docs --no-interactive --toc --line-numbers --format xml --output-dir "${GOLDEN_OUT}" "${GOLDEN_REPO}" >/dev/null 2>&1
+  local actual
+  actual="$(normalise "$(cat "${GOLDEN_OUT}/"*.xml)")"
+  golden_compare "docs-xml-toc-line-numbers.golden" "${actual}"
+}
+
 # ---------------------------------------------------------------------------
 # Code mode — markdown and XML+TOC
 # ---------------------------------------------------------------------------
@@ -156,6 +215,17 @@ golden_compare() {
   local actual
   actual="$(normalise "$(cat "${GOLDEN_OUT}/"*.xml)")"
   golden_compare "code-xml-toc.golden" "${actual}"
+}
+
+# ---------------------------------------------------------------------------
+# Code mode — secrets variant: --no-check-secrets includes aws-creds.py
+# ---------------------------------------------------------------------------
+
+@test "golden: no-check-secrets-code-md" {
+  smoosh --code --no-interactive --no-check-secrets --output-dir "${GOLDEN_OUT}" "${GOLDEN_REPO}" >/dev/null 2>&1
+  local actual
+  actual="$(normalise "$(cat "${GOLDEN_OUT}/"*.md)")"
+  golden_compare "no-check-secrets-code-md.golden" "${actual}"
 }
 
 # ---------------------------------------------------------------------------
@@ -189,6 +259,14 @@ golden_compare() {
   golden_compare "exclude-deep-md.golden" "${actual}"
 }
 
+@test "golden: exclude-multi-md" {
+  # Comma-separated excludes: deep paths and .txt files both excluded.
+  smoosh --docs --no-interactive --exclude "deep/*,*.txt" --output-dir "${GOLDEN_OUT}" "${GOLDEN_REPO}" >/dev/null 2>&1
+  local actual
+  actual="$(normalise "$(cat "${GOLDEN_OUT}/"*.md)")"
+  golden_compare "exclude-multi-md.golden" "${actual}"
+}
+
 @test "golden: include-json-md" {
   # package.json added to docs mode via --include.
   smoosh --docs --no-interactive --include "*.json" --output-dir "${GOLDEN_OUT}" "${GOLDEN_REPO}" >/dev/null 2>&1
@@ -198,25 +276,28 @@ golden_compare() {
 }
 
 # ---------------------------------------------------------------------------
-# Chunking: --max-words 100 splits docs mode into exactly 2 chunks
+# Chunking: --max-words 100 across all three formats
 # ---------------------------------------------------------------------------
 
 @test "golden: chunked-md" {
   smoosh --docs --no-interactive --max-words 100 --output-dir "${GOLDEN_OUT}" "${GOLDEN_REPO}" >/dev/null 2>&1
-  # Concatenate chunks in sorted order with a boundary marker.
-  local actual="" first=true chunk_file
-  while IFS= read -r chunk_file; do
-    if [[ "${first}" == "true" ]]; then
-      first=false
-    else
-      actual="${actual}
---- CHUNK BOUNDARY ---
-"
-    fi
-    actual="${actual}$(cat "${chunk_file}")"
-  done < <(find "${GOLDEN_OUT}" -maxdepth 1 -name '*.md' | LC_ALL=C sort)
-  actual="$(normalise "${actual}")"
+  local actual
+  actual="$(normalise "$(_concat_chunks md)")"
   golden_compare "chunked-md.golden" "${actual}"
+}
+
+@test "golden: chunked-text" {
+  smoosh --docs --no-interactive --max-words 100 --format text --output-dir "${GOLDEN_OUT}" "${GOLDEN_REPO}" >/dev/null 2>&1
+  local actual
+  actual="$(normalise "$(_concat_chunks txt)")"
+  golden_compare "chunked-text.golden" "${actual}"
+}
+
+@test "golden: chunked-xml" {
+  smoosh --docs --no-interactive --max-words 100 --format xml --output-dir "${GOLDEN_OUT}" "${GOLDEN_REPO}" >/dev/null 2>&1
+  local actual
+  actual="$(normalise "$(_concat_chunks xml)")"
+  golden_compare "chunked-xml.golden" "${actual}"
 }
 
 # ---------------------------------------------------------------------------
@@ -255,6 +336,26 @@ golden_compare() {
   golden_compare "json.golden" "${actual}"
 }
 
+@test "golden: json-dry-run" {
+  # --json --dry-run: different JSON structure (file list, no chunks).
+  local actual exit_code
+  actual="$(smoosh --docs --no-interactive --json --dry-run "${GOLDEN_REPO}" 2>/dev/null)"
+  exit_code=$?
+  [[ "${exit_code}" -eq 0 ]] || fail "smoosh exited with code ${exit_code}"
+  actual="$(normalise "${actual}")"
+  golden_compare "json-dry-run.golden" "${actual}"
+}
+
+@test "golden: code-json" {
+  # --code --json: secrets_excluded array is populated (aws-creds.py flagged).
+  local actual exit_code
+  actual="$(smoosh --code --no-interactive --json --output-dir "${GOLDEN_OUT}" "${GOLDEN_REPO}" 2>/dev/null)"
+  exit_code=$?
+  [[ "${exit_code}" -eq 0 ]] || fail "smoosh exited with code ${exit_code}"
+  actual="$(normalise "${actual}")"
+  golden_compare "code-json.golden" "${actual}"
+}
+
 @test "golden: quiet" {
   # --quiet writes output file paths to stdout, one per line.
   local actual exit_code
@@ -263,4 +364,24 @@ golden_compare() {
   [[ "${exit_code}" -eq 0 ]] || fail "smoosh exited with code ${exit_code}"
   actual="$(normalise "${actual}")"
   golden_compare "quiet.golden" "${actual}"
+}
+
+@test "golden: chunked-quiet" {
+  # --quiet with chunking: outputs one path per chunk.
+  local actual exit_code
+  actual="$(smoosh --docs --no-interactive --quiet --max-words 100 --output-dir "${GOLDEN_OUT}" "${GOLDEN_REPO}" 2>/dev/null)"
+  exit_code=$?
+  [[ "${exit_code}" -eq 0 ]] || fail "smoosh exited with code ${exit_code}"
+  actual="$(normalise "${actual}")"
+  golden_compare "chunked-quiet.golden" "${actual}"
+}
+
+@test "golden: chunked-json" {
+  # --json with chunking: chunks[] array has multiple entries.
+  local actual exit_code
+  actual="$(smoosh --docs --no-interactive --json --max-words 100 --output-dir "${GOLDEN_OUT}" "${GOLDEN_REPO}" 2>/dev/null)"
+  exit_code=$?
+  [[ "${exit_code}" -eq 0 ]] || fail "smoosh exited with code ${exit_code}"
+  actual="$(normalise "${actual}")"
+  golden_compare "chunked-json.golden" "${actual}"
 }

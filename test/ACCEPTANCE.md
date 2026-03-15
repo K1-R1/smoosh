@@ -237,7 +237,7 @@ files. Run them to confirm no regressions:
 
     bats test/smoosh_golden.bats
 
-All 17 tests should pass.
+All 30 tests should pass.
 
 If you intentionally change smoosh's output format (for example, adding a
 new header field), regenerate the golden files:

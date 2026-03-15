@@ -8,10 +8,10 @@ Generated: TIMESTAMP
 File: README.md
 ============================================================
 
-# Golden Repo
-
-This is the readme for the golden test fixture repository.
-It contains files that exercise every smoosh capability.
+0001 | # Golden Repo
+0002 | 
+0003 | This is the readme for the golden test fixture repository.
+0004 | It contains files that exercise every smoosh capability.
 
 
 
@@ -19,10 +19,10 @@ It contains files that exercise every smoosh capability.
 File: cdata-break.md
 ============================================================
 
-# CDATA Edge Case
-
-This file contains the sequence ]]> which breaks CDATA sections.
-The sequence ]]> must be escaped to ]]]]><\![CDATA[> in XML output.
+0001 | # CDATA Edge Case
+0002 | 
+0003 | This file contains the sequence ]]> which breaks CDATA sections.
+0004 | The sequence ]]> must be escaped to ]]]]><\![CDATA[> in XML output.
 
 
 
@@ -30,10 +30,10 @@ The sequence ]]> must be escaped to ]]]]><\![CDATA[> in XML output.
 File: deep/nested/path/doc.md
 ============================================================
 
-# Deeply Nested Document
-
-This document lives at a deeply nested path to test path handling.
-smoosh should include this file with its full relative path preserved.
+0001 | # Deeply Nested Document
+0002 | 
+0003 | This document lives at a deeply nested path to test path handling.
+0004 | smoosh should include this file with its full relative path preserved.
 
 
 
@@ -48,11 +48,11 @@ File: empty.md
 File: guide.rst
 ============================================================
 
-User Guide
-==========
-
-This guide covers the basic usage of the golden fixture project.
-See the readme for an overview of the project structure.
+0001 | User Guide
+0002 | ==========
+0003 | 
+0004 | This guide covers the basic usage of the golden fixture project.
+0005 | See the readme for an overview of the project structure.
 
 
 
@@ -60,10 +60,10 @@ See the readme for an overview of the project structure.
 File: it's-fine.md
 ============================================================
 
-# It's Fine
-
-This file's name contains an apostrophe.
-It tests filename quoting in shell pipelines.
+0001 | # It's Fine
+0002 | 
+0003 | This file's name contains an apostrophe.
+0004 | It tests filename quoting in shell pipelines.
 
 
 
@@ -71,13 +71,13 @@ It tests filename quoting in shell pipelines.
 File: journal.org
 ============================================================
 
-#+TITLE: Project Journal
-#+DATE: 2026-01-01
-
-* Overview
-
-This org file documents the golden fixture project history.
-Each entry records a notable event during development.
+0001 | #+TITLE: Project Journal
+0002 | #+DATE: 2026-01-01
+0003 | 
+0004 | * Overview
+0005 | 
+0006 | This org file documents the golden fixture project history.
+0007 | Each entry records a notable event during development.
 
 
 
@@ -85,11 +85,11 @@ Each entry records a notable event during development.
 File: manual.adoc
 ============================================================
 
-= Technical Manual
-:doctype: article
-
-This manual describes the technical details of the golden fixture project.
-Refer to the guide for usage instructions and the readme for an overview.
+0001 | = Technical Manual
+0002 | :doctype: article
+0003 | 
+0004 | This manual describes the technical details of the golden fixture project.
+0005 | Refer to the guide for usage instructions and the readme for an overview.
 
 
 
@@ -97,9 +97,9 @@ Refer to the guide for usage instructions and the readme for an overview.
 File: my notes.md
 ============================================================
 
-# My Notes
-
-This file name contains a space to test path handling.
+0001 | # My Notes
+0002 | 
+0003 | This file name contains a space to test path handling.
 
 
 
@@ -107,17 +107,17 @@ This file name contains a space to test path handling.
 File: no-newline.md
 ============================================================
 
-This file has no trailing newline at the end.
+0001 | This file has no trailing newline at the end.
 
 
 ============================================================
 File: notes.txt
 ============================================================
 
-Release notes for golden fixture project.
-
-Version one introduces the initial set of fixture files.
-These files exercise smoosh output format correctness.
+0001 | Release notes for golden fixture project.
+0002 | 
+0003 | Version one introduces the initial set of fixture files.
+0004 | These files exercise smoosh output format correctness.
 
 
 
@@ -125,9 +125,9 @@ These files exercise smoosh output format correctness.
 File: paper.tex
 ============================================================
 
-\documentclass{article}
-\title{Golden Fixture Paper}
-\begin{document}
-\maketitle
-This paper describes the golden fixture test repository.
-\end{document}
+0001 | \documentclass{article}
+0002 | \title{Golden Fixture Paper}
+0003 | \begin{document}
+0004 | \maketitle
+0005 | This paper describes the golden fixture test repository.
+0006 | \end{document}

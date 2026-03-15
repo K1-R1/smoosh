@@ -1,0 +1,21 @@
+{
+  "dry_run": true,
+  "repo": "golden-repo",
+  "files": [
+    {"path": "README.md", "words": 21, "chunk": 1},
+    {"path": "cdata-break.md", "words": 25, "chunk": 1},
+    {"path": "deep/nested/path/doc.md", "words": 27, "chunk": 1},
+    {"path": "empty.md", "words": 0, "chunk": 1},
+    {"path": "guide.rst", "words": 24, "chunk": 1},
+    {"path": "it's-fine.md", "words": 16, "chunk": 1},
+    {"path": "journal.org", "words": 24, "chunk": 1},
+    {"path": "manual.adoc", "words": 29, "chunk": 1},
+    {"path": "my notes.md", "words": 13, "chunk": 1},
+    {"path": "no-newline.md", "words": 9, "chunk": 1},
+    {"path": "notes.txt", "words": 22, "chunk": 1},
+    {"path": "paper.tex", "words": 15, "chunk": 1}
+  ],
+  "total_words": 225,
+  "estimated_tokens": 292,
+  "estimated_chunks": 1
+}

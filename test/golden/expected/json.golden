@@ -1,13 +1,13 @@
 {
   "repo": "golden-repo",
   "output_dir": "OUTPUT_DIR",
-  "files_processed": 10,
-  "total_words": 255,
-  "estimated_tokens": 331,
+  "files_processed": 12,
+  "total_words": 295,
+  "estimated_tokens": 383,
   "verified": true,
   "secrets_excluded": [],
   "chunks": [
-    {"path": "OUTPUT_DIR/TIMESTAMP_golden-repo_part1.md", "words": 255}
+    {"path": "OUTPUT_DIR/TIMESTAMP_golden-repo_part1.md", "words": 295}
   ],
   "exit_code": 0
 }

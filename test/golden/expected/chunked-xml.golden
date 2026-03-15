@@ -5,10 +5,6 @@
 
 This is the readme for the golden test fixture repository.
 It contains files that exercise every smoosh capability.
-# Golden Repo
-
-This is the readme for the golden test fixture repository.
-It contains files that exercise every smoosh capability.
 
 ]]></content>
 </file>
@@ -17,19 +13,11 @@ It contains files that exercise every smoosh capability.
 
 This file contains the sequence ]]]]><![CDATA[> which breaks CDATA sections.
 The sequence ]]]]><![CDATA[> must be escaped to ]]]]]]><![CDATA[><\![CDATA[> in XML output.
-# CDATA Edge Case
-
-This file contains the sequence ]]> which breaks CDATA sections.
-The sequence ]]> must be escaped to ]]]]><\![CDATA[> in XML output.
 
 ]]></content>
 </file>
 <file path="deep/nested/path/doc.md">
 <content><![CDATA[# Deeply Nested Document
-
-This document lives at a deeply nested path to test path handling.
-smoosh should include this file with its full relative path preserved.
-# Deeply Nested Document
 
 This document lives at a deeply nested path to test path handling.
 smoosh should include this file with its full relative path preserved.
@@ -46,11 +34,6 @@ smoosh should include this file with its full relative path preserved.
 
 This guide covers the basic usage of the golden fixture project.
 See the readme for an overview of the project structure.
-User Guide
-==========
-
-This guide covers the basic usage of the golden fixture project.
-See the readme for an overview of the project structure.
 
 ]]></content>
 </file>
@@ -63,22 +46,11 @@ See the readme for an overview of the project structure.
 
 This file's name contains an apostrophe.
 It tests filename quoting in shell pipelines.
-# It's Fine
-
-This file's name contains an apostrophe.
-It tests filename quoting in shell pipelines.
 
 ]]></content>
 </file>
 <file path="journal.org">
 <content><![CDATA[#+TITLE: Project Journal
-#+DATE: 2026-01-01
-
-* Overview
-
-This org file documents the golden fixture project history.
-Each entry records a notable event during development.
-#+TITLE: Project Journal
 #+DATE: 2026-01-01
 
 * Overview
@@ -94,11 +66,6 @@ Each entry records a notable event during development.
 
 This manual describes the technical details of the golden fixture project.
 Refer to the guide for usage instructions and the readme for an overview.
-= Technical Manual
-:doctype: article
-
-This manual describes the technical details of the golden fixture project.
-Refer to the guide for usage instructions and the readme for an overview.
 
 ]]></content>
 </file>
@@ -106,14 +73,11 @@ Refer to the guide for usage instructions and the readme for an overview.
 <content><![CDATA[# My Notes
 
 This file name contains a space to test path handling.
-# My Notes
-
-This file name contains a space to test path handling.
 
 ]]></content>
 </file>
 <file path="no-newline.md">
-<content><![CDATA[This file has no trailing newline at the end.This file has no trailing newline at the end.
+<content><![CDATA[This file has no trailing newline at the end.
 ]]></content>
 </file>
 </smoosh>
@@ -125,21 +89,11 @@ This file name contains a space to test path handling.
 
 Version one introduces the initial set of fixture files.
 These files exercise smoosh output format correctness.
-Release notes for golden fixture project.
-
-Version one introduces the initial set of fixture files.
-These files exercise smoosh output format correctness.
 
 ]]></content>
 </file>
 <file path="paper.tex">
 <content><![CDATA[\documentclass{article}
-\title{Golden Fixture Paper}
-\begin{document}
-\maketitle
-This paper describes the golden fixture test repository.
-\end{document}
-\documentclass{article}
 \title{Golden Fixture Paper}
 \begin{document}
 \maketitle

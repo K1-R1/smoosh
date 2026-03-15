@@ -109,7 +109,8 @@ curl -fsSL https://raw.githubusercontent.com/K1-R1/smoosh/v1.0.0/install.sh | ba
 Installs to `/usr/local/bin`. Override with:
 
 ```bash
-SMOOSH_INSTALL_DIR="$HOME/.local/bin" curl -fsSL .../install.sh | bash
+SMOOSH_INSTALL_DIR="$HOME/.local/bin" \
+  curl -fsSL https://raw.githubusercontent.com/K1-R1/smoosh/v1.0.0/install.sh | bash
 ```
 
 ### Manual

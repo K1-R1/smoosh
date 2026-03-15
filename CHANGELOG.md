@@ -34,6 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - CI and release workflow install shfmt via `go install` (Go module sum
   database) instead of a raw binary download, which had no integrity check.
+- Homebrew tap update replaced `mislav/bump-homebrew-formula-action` with a
+  shell script — removes the Node.js 20 runtime dependency and works
+  reliably with fine-grained PATs.
 - Demo GIFs and VHS tape moved to `assets/` directory.
 
 ## [1.0.0] - 2026-03-14

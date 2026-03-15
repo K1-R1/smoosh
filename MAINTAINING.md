@@ -33,7 +33,6 @@ Everything else needs manual bumping.
 |---|---|---|
 | `actions/checkout` | `ci.yml`, `release.yml` | v6.0.2 |
 | `actions/upload-artifact` | `ci.yml` | v7.0.0 |
-| `mislav/bump-homebrew-formula-action` | `release.yml` | v3.6 |
 
 ### Manual
 
@@ -49,13 +48,6 @@ Everything else needs manual bumping.
 When bumping a manual dependency: update the version pin, run CI locally
 (`prek run && bats test/*.bats`), and commit with
 `chore: bump <tool> to vX.Y.Z`.
-
-## Known deprecation
-
-`mislav/bump-homebrew-formula-action` v3.6 uses the Node.js 20 runtime,
-which GitHub deprecates in **June 2026**. Watch for a v4 release or plan
-a replacement (a shell script in the release workflow that computes the
-SHA256 and commits to the tap directly).
 
 ## Periodic checks
 

@@ -342,8 +342,10 @@ Exit Codes:
   1   Usage error (bad arguments)
   2   Target not found or not a git repository
   3   No matching files found
+  4   Verification failed — output does not match expected file list
   5   Remote clone failed
   7   Cannot create output directory
+  130 Interrupted (Ctrl-C)
 
 Examples:
   smoosh                          # interactive mode (guided setup)
@@ -784,8 +786,7 @@ batch_mime_check() {
   [[ "${MODE}" != "all" ]] && return 0 # extension filter is sufficient for docs/code
 
   command -v file >/dev/null 2>&1 || {
-    warn "file command not found — skipping MIME validation"
-    return 0
+    die 1 "'file' command not found — required for --all mode. Install it (e.g. apt-get install file) or use --code instead of --all."
   }
 
   local list_file

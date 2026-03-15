@@ -26,11 +26,11 @@ jobs:
         run: shellcheck --severity=warning smoosh install.sh
 
       - name: Install shfmt
+        # go install verifies integrity via the Go module sum database (sum.golang.org).
+        # mvdan/sh does not publish separate checksum files for its binary releases.
         run: |
-          curl -fsSL "https://github.com/mvdan/sh/releases/download/v3.13.0/shfmt_v3.13.0_linux_amd64" \
-            -o /usr/local/bin/shfmt
-          chmod +x /usr/local/bin/shfmt
-
+          go install mvdan.cc/sh/v3/cmd/shfmt@v3.13.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: Run shfmt
         run: shfmt -d -i 2 smoosh
@@ -74,6 +74,24 @@ jobs:
         env:
           TERM: xterm-256color
         run: bats test/*.bats
+
+  bash32:
+    name: Bash 3.2 syntax check
+    runs-on: macos-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # tag: v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Confirm /bin/bash version
+        run: /bin/bash --version | head -1
+
+      - name: Check syntax under Bash 3.2
+        # /bin/bash on macOS is Bash 3.2 (Apple-shipped, GPLv2).
+        # -n parses the script without executing it — catches Bash 4+ syntax
+        # such as declare -A, ${var,,}, mapfile, and named references.
+        run: /bin/bash -n smoosh
 
   coverage:
     name: Coverage

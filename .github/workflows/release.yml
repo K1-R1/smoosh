@@ -42,11 +42,11 @@ jobs:
         run: shellcheck --severity=warning smoosh install.sh
 
       - name: Install shfmt
+        # go install verifies integrity via the Go module sum database (sum.golang.org).
+        # mvdan/sh does not publish separate checksum files for its binary releases.
         run: |
-          curl -fsSL "https://github.com/mvdan/sh/releases/download/v3.13.0/shfmt_v3.13.0_linux_amd64" \
-            -o /usr/local/bin/shfmt
-          chmod +x /usr/local/bin/shfmt
-
+          go install mvdan.cc/sh/v3/cmd/shfmt@v3.13.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: Check shfmt
         run: shfmt -d -i 2 smoosh

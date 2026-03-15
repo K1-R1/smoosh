@@ -52,7 +52,8 @@ load 'test_helper/common-setup'
 
 @test "--version prints version string" {
   run smoosh --version
-  assert_output "smoosh 1.0.0"
+  assert_output --partial "smoosh "
+  assert_output --regexp "^smoosh [0-9]+\.[0-9]+\.[0-9]+$"
 }
 
 # ---------------------------------------------------------------------------

@@ -8,6 +8,7 @@
 #   SMOOSH_INSTALL_DIR  — installation directory (default: /usr/local/bin)
 #   SMOOSH_VERSION      — specific version to install (default: latest)
 #   SMOOSH_NO_CONFIRM   — set to 1 to skip the confirmation prompt
+#   SMOOSH_NO_VERIFY    — set to 1 to skip checksum verification (unsafe)
 
 set -euo pipefail
 
@@ -21,6 +22,7 @@ readonly BINARY_NAME="smoosh"
 INSTALL_DIR="${SMOOSH_INSTALL_DIR:-/usr/local/bin}"
 REQUESTED_VERSION="${SMOOSH_VERSION:-}"
 NO_CONFIRM="${SMOOSH_NO_CONFIRM:-0}"
+NO_VERIFY="${SMOOSH_NO_VERIFY:-0}"
 
 # ---------------------------------------------------------------------------
 # Terminal colours — disabled when not a TTY
@@ -147,8 +149,10 @@ download_and_install() {
     local expected
     expected="$(awk '{print $1}' "${tmp_sha}")"
     sha256_verify "${tmp_bin}" "${expected}"
+  elif [[ "${NO_VERIFY}" == "1" ]]; then
+    warn "SMOOSH_NO_VERIFY=1 set — skipping checksum verification (unsafe)"
   else
-    warn "No .sha256 file found for this release — skipping verification"
+    die "No .sha256 file found for v${VERSION} — aborting to protect against an unverified install. Set SMOOSH_NO_VERIFY=1 to skip (unsafe)."
   fi
 
   # Install: try without sudo first, fall back to sudo.

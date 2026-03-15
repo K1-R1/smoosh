@@ -1,8 +1,8 @@
 # smoosh demo — interactive mode (hero)
-# Record with: vhs demo.tape
+# Record with: vhs assets/demo.tape
 # Requires: brew install vhs
 
-Output demo.gif
+Output assets/demo.gif
 
 Require bash
 

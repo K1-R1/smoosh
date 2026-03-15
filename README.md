@@ -1,6 +1,6 @@
 <div align="center">
 
-![smoosh logo](demo-logo.gif)
+![smoosh logo](assets/demo-logo.gif)
 
 [![CI](https://github.com/K1-R1/smoosh/actions/workflows/ci.yml/badge.svg)](https://github.com/K1-R1/smoosh/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -12,7 +12,7 @@
 Turn any git repo into AI-ready context — for NotebookLM, Claude Projects,
 ChatGPT, or your own RAG pipeline. Pure bash, zero dependencies.
 
-![smoosh interactive demo](demo.gif)
+![smoosh interactive demo](assets/demo.gif)
 
 </div>
 
@@ -90,7 +90,7 @@ telemetry. Private repos need this. Public ones benefit too.
 
 Preview, filter, and pipe — all from flags:
 
-![smoosh power user demo](demo-power.gif)
+![smoosh power user demo](assets/demo-power.gif)
 
 ## Installation
 

@@ -64,31 +64,29 @@ always use `UPDATE_GOLDEN=1` to regenerate them from a passing smoosh run.
 
 ## Updating the Demos
 
-The demos are recorded with [VHS](https://github.com/charmbracelet/vhs)
-(`brew install vhs`). There are three tape files:
+The demos live in `assets/`. The interactive demo has a
+[VHS](https://github.com/charmbracelet/vhs) tape file (`brew install vhs`):
 
 | Tape | Output | Shows |
 | --- | --- | --- |
-| `demo-logo.tape` | `demo-logo.gif` | Banner logo (README hero) |
-| `demo.tape` | `demo.gif` | Interactive mode flow |
-| `demo-power.tape` | `demo-power.gif` | Power-user flags |
+| `assets/demo.tape` | `assets/demo.gif` | Interactive mode flow |
 
-Re-record after the relevant change:
+The other GIFs (`demo-logo.gif`, `demo-power.gif`) are recorded manually.
 
-| When to re-record | Tapes affected |
+Re-record when relevant:
+
+| When to re-record | Files affected |
 | --- | --- |
-| Visual style changes (colours, banner, symbols) | `demo-logo.tape`, `demo.tape` |
-| Interactive mode UI changes | `demo.tape` |
-| New major flags or output format changes | `demo-power.tape` |
+| Visual style changes (colours, banner, symbols) | `assets/demo-logo.gif`, `assets/demo.gif` |
+| Interactive mode UI changes | `assets/demo.gif` |
+| New major flags or output format changes | `assets/demo-power.gif` |
 
 ```bash
-vhs demo-logo.tape    # logo — re-record when visual style changes
-vhs demo.tape         # interactive flow — re-record when UI changes
-vhs demo-power.tape   # power-user flags — re-record when flags change
+vhs assets/demo.tape  # interactive flow — re-record when UI changes
 ```
 
 Commit the updated `.gif` files alongside the code change that prompted the
-re-record. The tapes are the source of truth — never edit the GIFs by hand.
+re-record.
 
 ## Code Style
 

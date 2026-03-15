@@ -1,0 +1,152 @@
+Repository Compilation: golden-repo (Part 1)
+Generated: TIMESTAMP
+============================================================
+
+
+Table of Contents
+------------------------------------------------------------
+
+    1  README.md                                           21 words
+    2  cdata-break.md                                      25 words
+    3  deep/nested/path/doc.md                             27 words
+    4  empty.md                                            0 words
+    5  guide.rst                                           24 words
+    6  it's-fine.md                                        16 words
+    7  journal.org                                         24 words
+    8  manual.adoc                                         29 words
+    9  my notes.md                                         13 words
+   10  no-newline.md                                       9 words
+   11  notes.txt                                           22 words
+   12  paper.tex                                           15 words
+
+  Total: 12 files, 225 words
+
+
+
+============================================================
+File: README.md
+============================================================
+
+# Golden Repo
+
+This is the readme for the golden test fixture repository.
+It contains files that exercise every smoosh capability.
+
+
+
+============================================================
+File: cdata-break.md
+============================================================
+
+# CDATA Edge Case
+
+This file contains the sequence ]]> which breaks CDATA sections.
+The sequence ]]> must be escaped to ]]]]><\![CDATA[> in XML output.
+
+
+
+============================================================
+File: deep/nested/path/doc.md
+============================================================
+
+# Deeply Nested Document
+
+This document lives at a deeply nested path to test path handling.
+smoosh should include this file with its full relative path preserved.
+
+
+
+============================================================
+File: empty.md
+============================================================
+
+
+
+
+============================================================
+File: guide.rst
+============================================================
+
+User Guide
+==========
+
+This guide covers the basic usage of the golden fixture project.
+See the readme for an overview of the project structure.
+
+
+
+============================================================
+File: it's-fine.md
+============================================================
+
+# It's Fine
+
+This file's name contains an apostrophe.
+It tests filename quoting in shell pipelines.
+
+
+
+============================================================
+File: journal.org
+============================================================
+
+#+TITLE: Project Journal
+#+DATE: 2026-01-01
+
+* Overview
+
+This org file documents the golden fixture project history.
+Each entry records a notable event during development.
+
+
+
+============================================================
+File: manual.adoc
+============================================================
+
+= Technical Manual
+:doctype: article
+
+This manual describes the technical details of the golden fixture project.
+Refer to the guide for usage instructions and the readme for an overview.
+
+
+
+============================================================
+File: my notes.md
+============================================================
+
+# My Notes
+
+This file name contains a space to test path handling.
+
+
+
+============================================================
+File: no-newline.md
+============================================================
+
+This file has no trailing newline at the end.
+
+
+============================================================
+File: notes.txt
+============================================================
+
+Release notes for golden fixture project.
+
+Version one introduces the initial set of fixture files.
+These files exercise smoosh output format correctness.
+
+
+
+============================================================
+File: paper.tex
+============================================================
+
+\documentclass{article}
+\title{Golden Fixture Paper}
+\begin{document}
+\maketitle
+This paper describes the golden fixture test repository.
+\end{document}

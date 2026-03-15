@@ -1,0 +1,4 @@
+Release notes for golden fixture project.
+
+Version one introduces the initial set of fixture files.
+These files exercise smoosh output format correctness.

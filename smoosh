@@ -898,8 +898,13 @@ write_chunk_footer() {
 
 # add_line_numbers FILE
 # Print file content to stdout with right-aligned line numbers.
+# Captures via $() to strip trailing newlines — GNU nl adds one for files
+# that lack it; BSD nl preserves the original. printf '%s' ensures consistent
+# output on both, and the caller's printf '\n' adds exactly one.
 add_line_numbers() {
-  nl -ba -nrz -w4 -s' | ' -- "${1}" 2>/dev/null || cat -- "${1}"
+  local numbered
+  numbered="$(nl -ba -nrz -w4 -s' | ' -- "${1}" 2>/dev/null || cat -- "${1}")"
+  printf '%s' "${numbered}"
 }
 
 # write_file_entry FD REL_PATH
@@ -929,9 +934,10 @@ write_file_entry() {
       add_line_numbers "${abs_path}" |
         sed 's/]]>/]]]]><![CDATA[>/g' >&"${fd}"
     else
-      # Group sed+fallback so only one redirect is applied to the combined stdout.
-      { sed 's/]]>/]]]]><![CDATA[>/g' -- "${abs_path}" 2>/dev/null ||
-        cat -- "${abs_path}"; } >&"${fd}"
+      # Pipe through sed rather than sed -- file: BSD sed does not support --
+      # as end-of-options (it treats it as a literal filename, causing doubled
+      # output via the || fallback).
+      cat -- "${abs_path}" | sed 's/]]>/]]]]><![CDATA[>/g' >&"${fd}"
     fi
   elif [[ "${LINE_NUMBERS}" == "true" ]]; then
     add_line_numbers "${abs_path}" >&"${fd}"

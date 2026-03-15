@@ -1,0 +1,5 @@
+= Technical Manual
+:doctype: article
+
+This manual describes the technical details of the golden fixture project.
+Refer to the guide for usage instructions and the readme for an overview.

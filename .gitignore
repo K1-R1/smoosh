@@ -32,3 +32,6 @@ todos/
 
 # test artefacts
 /tmp/
+
+# fixture files that intentionally resemble secrets/env files
+!test/fixtures/golden-repo/.env.example

@@ -38,19 +38,19 @@ getting an entire codebase into them — in the right format, within token
 limits, without accidentally including secrets. smoosh handles all of that
 in one command.
 
-**Understand your codebase in plain English.** Upload smoosh output to
+**Understand your codebase in plain language.** Upload smoosh output to
 NotebookLM and ask questions about architecture, module boundaries, or what
 that obscure utility actually does. Technical knowledge becomes accessible to
 everyone on the team — not just the people who wrote the code. Product,
 design, and leadership get answers without reading source files.
 
-**Give AI real context, not guesswork.** Drop the output into Claude Projects
+**Give AI real context.** Drop the output into Claude Projects
 or ChatGPT and get an assistant that actually knows your codebase. No
 hallucinated function signatures, no "I don't have access to that file." It
 can answer questions about any file, understand cross-module relationships,
 and suggest changes that fit your existing patterns.
 
-**Onboard in hours, not weeks.** New team members get a searchable snapshot
+**Onboard in hours.** New team members get a searchable snapshot
 of the entire codebase before they even clone the repo. Pair it with
 NotebookLM and they can ask the codebase questions on day one.
 
@@ -61,16 +61,7 @@ real context from your actual code.
 
 **Private by default.** Everything runs locally. Your code never leaves your
 machine unless you choose to upload it. No API keys, no SaaS accounts, no
-telemetry. Private repos need this. Public ones benefit too.
-
-| | smoosh | doing it by hand |
-| --- | --- | --- |
-| **Stays within AI token limits** | automatic chunking | manual splitting and counting |
-| **Every file accounted for** | 100% verified — exits on mismatch | hope for the best |
-| **Secrets excluded** | detected and flagged | easy to forget |
-| **Works on remote repos** | one command | clone, navigate, copy |
-| **Agent/CI ready** | `--json`, exit codes 0–7 | custom scripting |
-| **Dependencies** | git + bash | — |
+telemetry.
 
 ## Features
 
@@ -192,20 +183,20 @@ echo "Generated: ${files}"
 
 ### NotebookLM
 
-**Step 1 — Install smoosh** (30 seconds)
+**Step 1 — Install smoosh**
 
 ```bash
 brew install K1-R1/tap/smoosh
 ```
 
-**Step 2 — Run smoosh in your repo** (seconds to a minute)
+**Step 2 — Run smoosh in your repo**
 
 ```bash
 cd your-project
 smoosh          # docs only — usually the right start
 ```
 
-Output lands in `your-project/_smooshes/`. For code too:
+Output lands in `your-project/_smooshes/`:
 
 ```bash
 smoosh --code
@@ -221,7 +212,7 @@ smoosh --code
 **Step 4 — Chat with your codebase**
 
 Ask about architecture, find functions, generate onboarding guides, or get
-plain-English explanations of complex modules.
+plain-English explanations of complex modules. No hallucinations, all sources cited.
 
 **NotebookLM limits (as of early 2026):**
 
@@ -247,8 +238,7 @@ grounded in your actual code.
 
 1. Run `smoosh --code` in your repo.
 2. Open a ChatGPT conversation and attach the files from `_smooshes/`.
-3. For ongoing use, add them as knowledge files in a
-   [custom GPT](https://chatgpt.com/gpts/editor).
+3. For ongoing use, add them as knowledge files in [ChatGPT](https://help.openai.com/en/articles/8843948-knowledge-in-gpts).
 
 Works with any ChatGPT plan that supports file uploads.
 

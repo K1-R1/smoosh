@@ -1,0 +1,20 @@
+# Repository Compilation: golden-repo (Part 1)
+Generated: TIMESTAMP
+
+
+
+---
+### File: app.py
+---
+
+"""Golden fixture Python module."""
+
+
+def greet(name):
+    """Return a greeting string."""
+    return "Hello, " + name
+
+
+def add(a, b):
+    """Return the sum of two numbers."""
+    return a + b

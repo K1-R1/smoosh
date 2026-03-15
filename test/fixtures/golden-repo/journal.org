@@ -1,0 +1,7 @@
+#+TITLE: Project Journal
+#+DATE: 2026-01-01
+
+* Overview
+
+This org file documents the golden fixture project history.
+Each entry records a notable event during development.

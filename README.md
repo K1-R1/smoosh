@@ -323,7 +323,7 @@ smoosh counts words using `wc -w`, which splits on whitespace. Code files
 with dense syntax (JSON, minified JS) count differently than prose.
 
 **Is it overengineered for a shell script?**
-Absolutely. 198 tests, 100% file inclusion verification, CDATA escaping for
+Absolutely. 215 tests, 100% file inclusion verification, CDATA escaping for
 XML output, and a box-drawing letter logo. But your codebase deserves to be
 smooshed properly.
 

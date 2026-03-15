@@ -1,0 +1,100 @@
+# Repository Compilation: golden-repo (Part 1)
+Generated: TIMESTAMP
+
+
+
+---
+### File: README.md
+---
+
+# Golden Repo
+
+This is the readme for the golden test fixture repository.
+It contains files that exercise every smoosh capability.
+
+
+
+---
+### File: cdata-break.md
+---
+
+# CDATA Edge Case
+
+This file contains the sequence ]]> which breaks CDATA sections.
+The sequence ]]> must be escaped to ]]]]><\![CDATA[> in XML output.
+
+
+
+---
+### File: empty.md
+---
+
+
+
+
+---
+### File: guide.rst
+---
+
+User Guide
+==========
+
+This guide covers the basic usage of the golden fixture project.
+See the readme for an overview of the project structure.
+
+
+
+---
+### File: journal.org
+---
+
+#+TITLE: Project Journal
+#+DATE: 2026-01-01
+
+* Overview
+
+This org file documents the golden fixture project history.
+Each entry records a notable event during development.
+
+
+
+---
+### File: manual.adoc
+---
+
+= Technical Manual
+:doctype: article
+
+This manual describes the technical details of the golden fixture project.
+Refer to the guide for usage instructions and the readme for an overview.
+
+
+
+---
+### File: no-newline.md
+---
+
+This file has no trailing newline at the end.
+
+
+---
+### File: notes.txt
+---
+
+Release notes for golden fixture project.
+
+Version one introduces the initial set of fixture files.
+These files exercise smoosh output format correctness.
+
+
+
+---
+### File: paper.tex
+---
+
+\documentclass{article}
+\title{Golden Fixture Paper}
+\begin{document}
+\maketitle
+This paper describes the golden fixture test repository.
+\end{document}

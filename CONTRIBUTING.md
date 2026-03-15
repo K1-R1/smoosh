@@ -41,6 +41,27 @@ bats test/*.bats          # all tests
 bats test/smoosh_args.bats  # specific file
 ```
 
+## Golden File Tests
+
+The golden file suite (`test/smoosh_golden.bats`) verifies that smoosh output
+is byte-for-byte correct across all modes, formats, and feature combinations.
+
+If you intentionally change smoosh's output format (for example, adding a new
+header field or changing the section separator), regenerate the expected files:
+
+```bash
+UPDATE_GOLDEN=1 bats test/smoosh_golden.bats
+```
+
+Then review the diff to confirm the changes are intentional before committing:
+
+```bash
+git diff test/golden/
+```
+
+The golden files live in `test/golden/expected/`. Never edit them by hand —
+always use `UPDATE_GOLDEN=1` to regenerate them from a passing smoosh run.
+
 ## Updating the Demos
 
 The demos are recorded with [VHS](https://github.com/charmbracelet/vhs)

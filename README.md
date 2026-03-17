@@ -94,20 +94,31 @@ brew install K1-R1/tap/smoosh
 ### curl (macOS / Linux / Git Bash)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/K1-R1/smoosh/v1.0.0/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/K1-R1/smoosh/main/install.sh | bash
 ```
 
 Installs to `/usr/local/bin`. Override with:
 
 ```bash
 SMOOSH_INSTALL_DIR="$HOME/.local/bin" \
-  curl -fsSL https://raw.githubusercontent.com/K1-R1/smoosh/v1.0.0/install.sh | bash
+  curl -fsSL https://raw.githubusercontent.com/K1-R1/smoosh/main/install.sh | bash
 ```
+
+The installer supports these environment variables:
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `SMOOSH_INSTALL_DIR` | `/usr/local/bin` | Installation directory |
+| `SMOOSH_VERSION` | latest | Pin a specific version (e.g. `1.0.1`) |
+| `SMOOSH_NO_CONFIRM` | `0` | Set to `1` to skip confirmation prompt |
+| `SMOOSH_NO_VERIFY` | `0` | Set to `1` to skip checksum verification (unsafe) |
 
 ### Manual
 
 ```bash
 curl -fsSL https://github.com/K1-R1/smoosh/releases/latest/download/smoosh -o smoosh
+curl -fsSL https://github.com/K1-R1/smoosh/releases/latest/download/smoosh.sha256 -o smoosh.sha256
+sha256sum -c smoosh.sha256
 chmod +x smoosh
 sudo mv smoosh /usr/local/bin/
 ```

@@ -123,14 +123,14 @@ jobs:
           tarball_url="https://github.com/K1-R1/smoosh/archive/refs/tags/${TAG_NAME}.tar.gz"
 
           # Compute SHA256 from the release tarball.
-          curl -fsSL "${tarball_url}" -o /tmp/smoosh-src.tar.gz
-          sha256="$(sha256sum /tmp/smoosh-src.tar.gz | awk '{print $1}')"
+          curl -fsSL "${tarball_url}" -o "$RUNNER_TEMP/smoosh-src.tar.gz"
+          sha256="$(sha256sum "$RUNNER_TEMP/smoosh-src.tar.gz" | awk '{print $1}')"
 
           # Clone, patch, push.
           git clone \
             "https://x-access-token:${COMMITTER_TOKEN}@github.com/K1-R1/homebrew-tap.git" \
-            /tmp/homebrew-tap
-          cd /tmp/homebrew-tap
+            "$RUNNER_TEMP/homebrew-tap"
+          cd "$RUNNER_TEMP/homebrew-tap"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
 

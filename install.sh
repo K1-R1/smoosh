@@ -2,7 +2,7 @@
 # smoosh installer — https://github.com/K1-R1/smoosh
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/K1-R1/smoosh/v1.0.0/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/K1-R1/smoosh/main/install.sh | bash
 #
 # Options (set via environment variables):
 #   SMOOSH_INSTALL_DIR  — installation directory (default: /usr/local/bin)
@@ -45,7 +45,10 @@ fi
 info() { printf '%s\n' "${GREEN}info${RESET}  ${*}"; }
 warn() { printf '%s\n' "${YELLOW}warn${RESET}  ${*}" >&2; }
 error() { printf '%s\n' "${RED}error${RESET} ${*}" >&2; }
-die() { error "${@}"; exit 1; }
+die() {
+  error "${@}"
+  exit 1
+}
 
 need_cmd() {
   command -v "${1}" >/dev/null 2>&1 || die "Required command not found: ${1}"
@@ -159,10 +162,13 @@ download_and_install() {
   info "Installing to ${INSTALL_DIR}/${BINARY_NAME}..."
   if install -m 755 "${tmp_bin}" "${INSTALL_DIR}/${BINARY_NAME}" 2>/dev/null; then
     : # success without sudo
-  elif sudo install -m 755 "${tmp_bin}" "${INSTALL_DIR}/${BINARY_NAME}"; then
-    : # success with sudo
   else
-    die "Installation failed. Try: SMOOSH_INSTALL_DIR=\$HOME/.local/bin bash install.sh"
+    warn "Writing to ${INSTALL_DIR} requires elevated privileges (sudo)."
+    if sudo install -m 755 "${tmp_bin}" "${INSTALL_DIR}/${BINARY_NAME}"; then
+      : # success with sudo
+    else
+      die "Installation failed. Try: SMOOSH_INSTALL_DIR=\$HOME/.local/bin bash install.sh"
+    fi
   fi
 }
 
@@ -199,7 +205,10 @@ main() {
     read -r answer
     case "${answer}" in
     [yY] | [yY][eE][sS]) ;;
-    *) printf 'Installation cancelled.\n'; exit 0 ;;
+    *)
+      printf 'Installation cancelled.\n'
+      exit 0
+      ;;
     esac
     printf '\n'
   fi

@@ -16,6 +16,8 @@ ChatGPT, or your own RAG pipeline. Pure bash, zero dependencies.
 
 </div>
 
+**[Quick Start](#quick-start)** · **[Why smoosh?](#why-smoosh)** · **[Features](#features)** · **[Installation](#installation)** · **[Uninstall](#uninstall)** · **[Usage](#usage)** · **[AI Tools](#using-smoosh-with-ai-tools)** · **[Agent / CI](#agents-and-ci-pipelines)** · **[Config Reference](#configuration-reference)** · **[FAQ](#faq)**
+
 ## Quick Start
 
 ```bash
@@ -122,6 +124,19 @@ sha256sum -c smoosh.sha256
 chmod +x smoosh
 sudo mv smoosh /usr/local/bin/
 ```
+
+### Uninstall
+
+```bash
+# Homebrew
+brew uninstall smoosh
+
+# curl / manual
+rm "$(which smoosh)"
+```
+
+If you installed via both methods, check `which smoosh` after removing one — a
+second copy may remain in a different location.
 
 ## Usage
 
@@ -253,6 +268,49 @@ grounded in your actual code.
 
 Works with any ChatGPT plan that supports file uploads.
 
+### Agents and CI pipelines
+
+smoosh is designed to be called by AI agents and CI pipelines, not just humans.
+
+**Pre-flight check** — estimate size before generating output:
+
+```bash
+smoosh --json --dry-run --all .
+```
+
+```json
+{
+  "dry_run": true,
+  "repo": "my-project",
+  "files": [
+    {"path": "README.md", "words": 194, "chunk": 1},
+    {"path": "src/main.py", "words": 312, "chunk": 1}
+  ],
+  "total_words": 506,
+  "estimated_tokens": 658,
+  "estimated_chunks": 1
+}
+```
+
+**Generate output:**
+
+```bash
+smoosh --no-interactive --json --all .
+```
+
+**Key flags for automation:**
+
+| Flag | Purpose |
+| --- | --- |
+| `--no-interactive` | Skip TTY detection and prompts |
+| `--json` | Structured JSON to stdout (status messages go to stderr) |
+| `--quiet` | Output file paths only, one per line |
+| `--dry-run` | Preview without writing files |
+| `--no-color` | Disable colour escape codes |
+
+Exit codes 0–7 are differentiated for programmatic decision-making — see
+[Configuration Reference](#configuration-reference) below.
+
 ## Configuration Reference
 
 | Flag | Default | Description |
@@ -273,9 +331,13 @@ Works with any ChatGPT plan that supports file uploads.
 | `--quiet` | — | Print output paths only (stdout) |
 | `--json` | — | Structured JSON to stdout |
 | `--no-interactive` | — | Skip interactive mode even in a TTY |
+| `--no-color` | — | Disable colour output |
 | `--no-check-secrets` | — | Skip the basic secrets scan |
 | `--version` | — | Print version and exit 0 |
 | `--help` | — | Print full usage and exit 0 |
+
+**Colour control:** `--no-color` flag > `NO_COLOR` env var > `FORCE_COLOR` >
+`CLICOLOR` > TTY auto-detect. See [no-color.org](https://no-color.org/).
 
 **Exit codes:**
 

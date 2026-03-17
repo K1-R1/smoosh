@@ -29,14 +29,6 @@ jobs:
 
 
 ---
-### File: .gitignore
----
-
-OUTPUT_DIR/
-
-
-
----
 ### File: Makefile
 ---
 

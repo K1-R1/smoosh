@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-03-17
+
+### Fixed
+
+- `.gitignore` auto-update no longer crashes on read-only repos when
+  `--output-dir` points outside the repository root. The `.gitignore` write
+  is now skipped (with a warning) since an external absolute path in
+  `.gitignore` would be meaningless anyway.
+- README and `install.sh` header comment no longer pin curl install URLs to
+  `v1.0.0` — now reference `main` branch so users always get the latest
+  install script.
+
+### Security
+
+- `.gitignore` auto-update skips symlinks with a warning, preventing the
+  `cp` + `mv` pattern from overwriting the symlink target.
+- `install.sh` now warns before falling back to `sudo` for installation,
+  making privilege escalation visible in `curl | bash` contexts.
+- README manual install instructions now include SHA256 checksum
+  verification step.
+- Release workflow uses `$RUNNER_TEMP` instead of world-readable `/tmp` for
+  intermediate files.
+
+### Added
+
+- Table of contents in README for quick navigation.
+- Uninstall section in README (Homebrew and manual paths, shadow binary
+  note).
+- Agent/CI usage section in README with JSON schema example, recommended
+  commands, and automation flags table.
+- `--no-color` flag documented in README configuration reference table.
+- Colour environment variable precedence documented (`--no-color` >
+  `NO_COLOR` > `FORCE_COLOR` > `CLICOLOR` > TTY auto-detect).
+- `install.sh` environment variables documented in README (`SMOOSH_VERSION`,
+  `SMOOSH_INSTALL_DIR`, `SMOOSH_NO_CONFIRM`, `SMOOSH_NO_VERIFY`).
+- Agent/CI example added to `--help` output.
+- 3 new bats tests: external `--output-dir` skips `.gitignore`, symlink
+  `.gitignore` is not followed, `--help` includes agent example.
+
 ## [1.0.1] - 2026-03-15
 
 ### Fixed
@@ -64,6 +103,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Output path shown relative to repo root
 - Demo recordings: interactive mode flow and power-user flags
 
-[Unreleased]: https://github.com/K1-R1/smoosh/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/K1-R1/smoosh/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/K1-R1/smoosh/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/K1-R1/smoosh/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/K1-R1/smoosh/releases/tag/v1.0.0

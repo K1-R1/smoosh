@@ -35,16 +35,13 @@ drop into your AI tool of choice.
 
 ## Why smoosh?
 
-AI tools are powerful when they have the right context. The hard part is
-getting an entire codebase into them — in the right format, within token
-limits, without accidentally including secrets. smoosh handles all of that
-in one command.
+Getting an entire codebase into an AI tool — right format, within token
+limits, no secrets — is the tedious part. smoosh does it in one command.
 
 **Understand your codebase in plain language.** Upload smoosh output to
 NotebookLM and ask questions about architecture, module boundaries, or what
-that obscure utility actually does. Technical knowledge becomes accessible to
-everyone on the team — not just the people who wrote the code. Product,
-design, and leadership get answers without reading source files.
+that obscure utility actually does. Product, design, and leadership get
+answers without reading source files.
 
 **Give AI real context.** Drop the output into Claude Projects
 or ChatGPT and get an assistant that actually knows your codebase. No
@@ -111,7 +108,7 @@ The installer supports these environment variables:
 | Variable | Default | Description |
 | --- | --- | --- |
 | `SMOOSH_INSTALL_DIR` | `/usr/local/bin` | Installation directory |
-| `SMOOSH_VERSION` | latest | Pin a specific version (e.g. `1.0.1`) |
+| `SMOOSH_VERSION` | latest | Pin a specific version (e.g. `1.0.2`) |
 | `SMOOSH_NO_CONFIRM` | `0` | Set to `1` to skip confirmation prompt |
 | `SMOOSH_NO_VERIFY` | `0` | Set to `1` to skip checksum verification (unsafe) |
 
@@ -237,8 +234,8 @@ smoosh --code
 
 **Step 4 — Chat with your codebase**
 
-Ask about architecture, find functions, generate onboarding guides, or get
-plain-English explanations of complex modules. No hallucinations, all sources cited.
+Ask about architecture, find functions, or get plain-English explanations
+of complex modules — all with source citations.
 
 **NotebookLM limits (as of early 2026):**
 
@@ -386,7 +383,7 @@ smoosh counts words using `wc -w`, which splits on whitespace. Code files
 with dense syntax (JSON, minified JS) count differently than prose.
 
 **Is it overengineered for a shell script?**
-Absolutely. 228 tests, 100% file inclusion verification, CDATA escaping for
+Absolutely. 231 tests, 100% file inclusion verification, CDATA escaping for
 XML output, and a box-drawing letter logo. But your codebase deserves to be
 smooshed properly.
 

@@ -111,7 +111,7 @@ The installer supports these environment variables:
 | Variable | Default | Description |
 | --- | --- | --- |
 | `SMOOSH_INSTALL_DIR` | `/usr/local/bin` | Installation directory |
-| `SMOOSH_VERSION` | latest | Pin a specific version (e.g. `1.0.1`) |
+| `SMOOSH_VERSION` | latest | Pin a specific version (e.g. `1.0.2`) |
 | `SMOOSH_NO_CONFIRM` | `0` | Set to `1` to skip confirmation prompt |
 | `SMOOSH_NO_VERIFY` | `0` | Set to `1` to skip checksum verification (unsafe) |
 
@@ -386,7 +386,7 @@ smoosh counts words using `wc -w`, which splits on whitespace. Code files
 with dense syntax (JSON, minified JS) count differently than prose.
 
 **Is it overengineered for a shell script?**
-Absolutely. 228 tests, 100% file inclusion verification, CDATA escaping for
+Absolutely. 231 tests, 100% file inclusion verification, CDATA escaping for
 XML output, and a box-drawing letter logo. But your codebase deserves to be
 smooshed properly.
 

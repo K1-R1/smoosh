@@ -21,6 +21,9 @@ _smooshes/
 # Claude Code local settings (not for public consumption)
 .claude/settings.local.json
 
+# agent config (redundant with CLAUDE.md and CONTRIBUTING.md)
+.agent/
+
 # internal planning artefacts (not for public consumption)
 docs/
 todos/

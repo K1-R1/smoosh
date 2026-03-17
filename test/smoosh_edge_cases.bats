@@ -256,6 +256,42 @@ setup() {
   assert_output --partial "outside the repository root"
 }
 
+@test "--output-dir outside repo does not modify .gitignore" {
+  local ext_dir
+  ext_dir="$(mktemp -d)"
+  local before=""
+  [[ -f "${EDGE_REPO}/.gitignore" ]] && before="$(cat "${EDGE_REPO}/.gitignore")"
+  run smoosh --output-dir "${ext_dir}" "${EDGE_REPO}"
+  assert_success
+  local after=""
+  [[ -f "${EDGE_REPO}/.gitignore" ]] && after="$(cat "${EDGE_REPO}/.gitignore")"
+  [[ "${before}" == "${after}" ]]
+  rm -rf "${ext_dir}"
+}
+
+@test "symlink .gitignore is not followed during auto-update" {
+  local sym_repo
+  sym_repo="$(mktemp -d)"
+  printf '# test\n' >"${sym_repo}/readme.md"
+  local target="${sym_repo}/real-gitignore"
+  printf 'existing\n' >"${target}"
+  ln -sf "real-gitignore" "${sym_repo}/.gitignore"
+  git -C "${sym_repo}" init -q
+  git -C "${sym_repo}" config user.email "test@example.com"
+  git -C "${sym_repo}" config user.name "Test"
+  git -C "${sym_repo}" add -A
+  git -C "${sym_repo}" commit -q -m "init"
+  local before
+  before="$(cat "${target}")"
+  run smoosh "${sym_repo}"
+  assert_success
+  assert_output --partial ".gitignore is a symlink"
+  local after
+  after="$(cat "${target}")"
+  [[ "${before}" == "${after}" ]]
+  rm -rf "${sym_repo}"
+}
+
 # ---------------------------------------------------------------------------
 # Unreadable file during processing
 # ---------------------------------------------------------------------------

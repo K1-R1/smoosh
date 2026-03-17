@@ -352,6 +352,7 @@ Examples:
   smoosh --code                   # docs + code files
   smoosh --code --toc             # with table of contents
   smoosh https://github.com/u/r   # remote repository
+  smoosh --no-interactive --json . # agent / CI pipeline
 
 EOF
 }
@@ -707,8 +708,12 @@ ensure_output_dir() {
   OUTPUT_DIR="${dir}"
 
   # Warn if output directory is outside the repository root (local repos only).
+  # Skip .gitignore update — an external path in .gitignore is meaningless, and
+  # writing to REPO_ROOT would fail on read-only repos (e.g. sandboxed agents).
   if [[ "${REMOTE_REPO}" != "true" ]] && [[ "${OUTPUT_DIR}" != "${REPO_ROOT}/"* ]]; then
     warn "--output-dir is outside the repository root; output will not be auto-gitignored: ${OUTPUT_DIR}"
+    mkdir -p "${OUTPUT_DIR}" || die 7 "Cannot create output directory: ${OUTPUT_DIR}"
+    return 0
   fi
 
   if [[ ! -d "${OUTPUT_DIR}" ]]; then
@@ -718,15 +723,18 @@ ensure_output_dir() {
   # Remote repos: skip .gitignore (the clone is a temp dir, not the user's repo).
   [[ "${REMOTE_REPO}" == "true" ]] && return 0
 
-  # Compute repo-root-relative gitignore entry (skip for paths outside the repo).
+  # Compute repo-root-relative gitignore entry.
   local gitignore="${REPO_ROOT}/.gitignore"
-  local entry
-  if [[ "${OUTPUT_DIR}" == "${REPO_ROOT}/"* ]]; then
-    entry="${OUTPUT_DIR#"${REPO_ROOT}/"}"
-    entry="${entry}/"
-  else
-    entry="${OUTPUT_DIR}/"
+
+  # Guard against symlink .gitignore — cp + mv would overwrite the target.
+  if [[ -L "${gitignore}" ]]; then
+    warn ".gitignore is a symlink — skipping auto-update"
+    return 0
   fi
+
+  local entry
+  entry="${OUTPUT_DIR#"${REPO_ROOT}/"}"
+  entry="${entry}/"
   if ! grep -qF -- "${entry}" "${gitignore}" 2>/dev/null; then
     local tmp
     # Create temp in REPO_ROOT so mv to .gitignore is atomic (same filesystem).

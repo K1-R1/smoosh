@@ -41,6 +41,11 @@ load 'test_helper/common-setup'
   assert_output --partial "--output-dir"
 }
 
+@test "--help includes agent/CI example" {
+  run smoosh --help
+  assert_output --partial "--no-interactive --json"
+}
+
 # ---------------------------------------------------------------------------
 # --version
 # ---------------------------------------------------------------------------

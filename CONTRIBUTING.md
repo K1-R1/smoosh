@@ -1,7 +1,5 @@
 # Contributing to smoosh
 
-Thank you for your interest in contributing!
-
 ## Prerequisites
 
 - Bash 3.2+ (test with `bash --version`)

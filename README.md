@@ -24,9 +24,9 @@ Turn git repos into AI context. Pure bash, zero dependencies. RAG-ready.
 brew install K1-R1/tap/smoosh
 
 # In any git repo:
-smoosh           # docs only (default)
-smoosh --code    # docs + code files
-smoosh --all     # everything tracked by git
+smoosh           # interactive guided setup
+smoosh --code    # docs + code
+smoosh --all     # everything tracked by git (excluding binaries)
 ```
 
 Output lands in `_smooshes/` as verified `.md` chunks.
@@ -273,14 +273,14 @@ Exit codes 0–7 are differentiated for programmatic decision-making — see
 
 ## FAQ
 
-**Does it respect `.gitignore`?** Yes, via `git ls-files`.
-**What about large repos?** Chunks at `--max-words` (default 450k).
-**Is secret detection reliable?** It catches common patterns, but isn't a replacement for `gitleaks`.
-**Can I use it with other AIs?** Yes, it fundamentally outputs standard Markdown (or text/XML mapping).
-**Does it work on Windows?** Use Git Bash or WSL.
-**Why did `_smooshes/` appear in git status?** We auto-append it to `.gitignore`, ensure your syntax is correct.
-**Why is my word count different?** Files are counted via `wc -w`, so dense syntax (minified JS, JSON) counts differently than prose.
-**Is this overengineered?** Yes. 231 tests, strict verification, XML escaping, and a bespoke ANSI logo for a bash script. Your codebase deserves it.
+- **Does it respect `.gitignore`?** Yes, via `git ls-files`.
+- **What about large repos?** Chunks at `--max-words` (default 450k).
+- **Is secret detection reliable?** It catches common patterns, but isn't a replacement for `gitleaks`.
+- **Can I use it with other AIs?** Yes, it fundamentally outputs standard Markdown (or text/XML mapping).
+- **Does it work on Windows?** Use Git Bash or WSL.
+- **Why did `_smooshes/` appear in git status?** We auto-append it to `.gitignore`, ensure your syntax is correct.
+- **Why is my word count different?** Files are counted via `wc -w`, so dense syntax (minified JS, JSON) counts differently than prose.
+- **Is this overengineered?** No comment.
 
 ## Contributing
 

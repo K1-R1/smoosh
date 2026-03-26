@@ -1,0 +1,120 @@
+.TH SMOOSH 1 "March 2026" "smoosh 1.0.2" "User Commands"
+.SH NAME
+smoosh \- turn git repos into AI-ready context
+.SH SYNOPSIS
+.B smoosh
+[\fIOPTIONS\fR] [\fIPATH\fR | \fIURL\fR]
+.SH DESCRIPTION
+.B smoosh
+aggregates the contents of a git repository into a format optimised for Large Language Models (LLMs) and Retrieval-Augmented Generation (RAG) pipelines. It performs smart chunking, excludes binary files via MIME checks, and applies rigorous output verification.
+.PP
+By default,
+.B smoosh
+runs in an interactive guided mode when executed without arguments.
+.SH SCOPE OPTIONS
+.TP
+.BR \-\-docs
+Includes documentation files only (md, rst, txt, adoc, org, tex). This is the default mode when pointing to a directory.
+.TP
+.BR \-\-code
+Includes documentation and all code files (py, js, ts, rs, go, java, rb, etc.).
+.TP
+.BR \-\-all
+Includes everything tracked by git, safely excluding binaries via structural MIME-type checks.
+.SH FILTERING OPTIONS
+.TP
+.BR \-\-only " \fIGLOB\fR"
+Restrict output to matching extensions (overrides mode).
+.TP
+.BR \-\-include " \fIGLOB\fR"
+Add extensions to the current mode.
+.TP
+.BR \-\-exclude " \fIGLOB\fR"
+Exclude matching paths (comma-separated).
+.TP
+.BR \-\-include\-hidden
+Include dotfiles and dot-directories (e.g., \fI.github/\fR, \fI.env.example\fR).
+.SH OUTPUT OPTIONS
+.TP
+.BR \-\-format " \fIFORMAT\fR"
+Output format. Accepts \fBmd\fR (default), \fBtext\fR, or \fBxml\fR.
+.TP
+.BR \-\-max\-words " \fIN\fR"
+Words per output chunk. Default: \fB450000\fR.
+.TP
+.BR \-\-output\-dir " \fIPATH\fR"
+Directory for output files. Default: \fB_smooshes/\fR.
+.TP
+.BR \-\-toc
+Add a table of contents to the top of each chunk.
+.TP
+.BR \-\-line\-numbers
+Prefix each line with its source line number.
+.SH PREVIEW AND AUTOMATION OPTIONS
+.TP
+.BR \-\-dry\-run
+Preview file lists and token counts without writing output.
+.TP
+.BR \-\-quiet
+Print output paths only (one per line) to stdout, for piping.
+.TP
+.BR \-\-json
+Structured JSON to stdout, forcing status messages to stderr.
+.TP
+.BR \-\-no\-interactive
+Skip interactive mode entirely, using flag defaults.
+.TP
+.BR \-\-no\-color
+Disable ANSI colour output. (Also respects NO_COLOR environment variable).
+.TP
+.BR \-\-no\-check\-secrets
+Skip the basic secrets pattern scan.
+.SH EXAMPLES
+.PP
+Interactive guided setup:
+.RS 4
+$ smoosh
+.RE
+.PP
+Docs and code from the current directory:
+.RS 4
+$ smoosh --code .
+.RE
+.PP
+Output Python files as XML for a RAG pipeline:
+.RS 4
+$ smoosh --only "*.py" --format xml /path/to/repo
+.RE
+.PP
+Clone and process a remote repository:
+.RS 4
+$ smoosh https://github.com/K1-R1/smoosh
+.RE
+.SH EXIT CODES
+.B 0
+Success
+.br
+.B 1
+Invalid flags or arguments
+.br
+.B 2
+Path not found or not a git repository
+.br
+.B 3
+No matching files for current mode/filters
+.br
+.B 4
+Verification failed (expected/actual file list mismatch)
+.br
+.B 5
+Remote clone failed
+.br
+.B 7
+Write permission denied
+.br
+.B 130
+Interrupted (Ctrl-C)
+.SH BUGS
+Report bugs at https://github.com/K1-R1/smoosh/issues.
+.SH AUTHOR
+smoosh was developed by K1-R1 (and contributors).

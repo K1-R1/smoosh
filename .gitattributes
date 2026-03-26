@@ -1,14 +1,6 @@
-# Enforce LF line endings everywhere — prevents CRLF issues on Windows/Git Bash.
 * text=auto eol=lf
+*.sh text eol=lf
+smoosh text eol=lf
 
-# Binary files — do not diff or merge.
-*.png binary
-*.gif binary
-*.jpg binary
-
-# Shell scripts — ensure LF and enable linguist detection.
-*.sh text eol=lf linguist-language=Shell
-smoosh text eol=lf linguist-language=Shell
-
-# Bats test files.
-*.bats text eol=lf linguist-language=Shell
+# Hide golden tests from PR diffs and language stats
+test/golden/** -diff linguist-generated=true

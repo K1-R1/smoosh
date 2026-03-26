@@ -32,6 +32,10 @@ todos/
 
 # test artefacts
 /tmp/
+coverage/
+
+# release artefacts
+*.sha256
 
 # fixture files that intentionally resemble secrets/env files
 !test/fixtures/golden-repo/.env.example

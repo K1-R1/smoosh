@@ -9,14 +9,13 @@
 [![macOS](https://img.shields.io/badge/macOS-supported-brightgreen)](#installation)
 [![Linux](https://img.shields.io/badge/Linux-supported-brightgreen)](#installation)
 
-Turn any git repo into AI-ready context — for NotebookLM, Claude Projects,
-ChatGPT, or your own RAG pipeline. Pure bash, zero dependencies.
+Turn git repos into AI context. Pure bash, zero dependencies. RAG-ready.
 
 ![smoosh interactive demo](assets/demo.gif)
 
 </div>
 
-**[Quick Start](#quick-start)** · **[Why smoosh?](#why-smoosh)** · **[Features](#features)** · **[Installation](#installation)** · **[Uninstall](#uninstall)** · **[Usage](#usage)** · **[AI Tools](#using-smoosh-with-ai-tools)** · **[Agent / CI](#agents-and-ci-pipelines)** · **[Config Reference](#configuration-reference)** · **[FAQ](#faq)**
+**[Quick Start](#quick-start)** · **[Why smoosh?](#why-smoosh)** · **[Features](#features)** · **[Installation](#installation)** · **[Usage](#usage)** · **[AI Tools](#using-smoosh-with-ai-tools)** · **[Agent / CI](#agents-and-ci-pipelines)** · **[Config Reference](#configuration-reference)** · **[FAQ](#faq)**
 
 ## Quick Start
 
@@ -30,54 +29,39 @@ smoosh --code    # docs + code files
 smoosh --all     # everything tracked by git
 ```
 
-Output lands in `_smooshes/` — chunked, verified `.md` files ready to
-drop into your AI tool of choice.
+Output lands in `_smooshes/` as verified `.md` chunks.
 
 ## Why smoosh?
 
-AI tools are powerful when they have the right context. The hard part is
-getting an entire codebase into them — in the right format, within token
-limits, without accidentally including secrets. smoosh handles all of that
-in one command.
+Getting codebase context into AI takes time. Other tools do this but require bloated `node_modules` or Python environments just to concatenate text. We built smoosh internally for a **zero-dependency, native** approach. It turns a 20-minute chore into one fast, reliable command.
 
-**Understand your codebase in plain language.** Upload smoosh output to
-NotebookLM and ask questions about architecture, module boundaries, or what
-that obscure utility actually does. Technical knowledge becomes accessible to
-everyone on the team — not just the people who wrote the code. Product,
-design, and leadership get answers without reading source files.
+- **Understand codebases:** Upload to tools like NotebookLM to talk through your architecture without reading source.
+- **Give AI context:** Drop into Claude/ChatGPT for an assistant that knows your code, eliminating hallucinated APIs.
+- **Onboard instantly:** Give new hires a searchable snapshot to learn from, regardless of their technical background.
+- **Ground your agents:** Output is RAG-optimised, chunked within limits, and retains metadata.
+- **Private by default:** Runs locally. No API keys, zero telemetry.
 
-**Give AI real context.** Drop the output into Claude Projects
-or ChatGPT and get an assistant that actually knows your codebase. No
-hallucinated function signatures, no "I don't have access to that file." It
-can answer questions about any file, understand cross-module relationships,
-and suggest changes that fit your existing patterns.
+### How it Works
 
-**Onboard in hours.** New team members get a searchable snapshot
-of the entire codebase before they even clone the repo. Pair it with
-NotebookLM and they can ask the codebase questions on day one.
+smoosh isn't just a wrapper around `cat`. It is a strict, structured pipeline:
 
-**Ground your agents in fact.** smoosh output is optimised for
-retrieval-augmented generation (RAG) — chunked within token limits, with
-file path metadata preserved. Instead of hallucinating, your agents retrieve
-real context from your actual code.
-
-**Private by default.** Everything runs locally. Your code never leaves your
-machine unless you choose to upload it. No API keys, no SaaS accounts, no
-telemetry.
+1. **Discovery**: Uses `git ls-files` to perfectly respect your `.gitignore`.
+2. **Filtering**: Applies extension rules (`--docs`, `--code`) or MIME-type checks (`--all`) to drop binaries and noise.
+3. **Chunking**: Streams content through a fast word-count heuristic, splitting files sequentially without breaking mid-file.
+4. **Verification**: The final output is strictly cross-referenced against the expected file list. Any mismatch yields an immediate `exit 4`.
 
 ## Features
 
-- **File type presets** — `--docs` (default: md, rst, txt, adoc), `--code` (adds all code extensions), `--all` (everything)
-- **Smart chunking** — stays within word limits; names chunks `project_part1.md`, `project_part2.md`
-- **100% verification** — every chunk is integrity-checked against the expected file list; exits 4 on mismatch
-- **Interactive mode** — guided first-run experience: scans your repo, shows a breakdown, lets you pick a mode
-- **Remote repositories** — `smoosh https://github.com/user/repo` — clones and processes in one step
-- **Secrets detection** — warns about AWS keys, GitHub PATs, PEM private key blocks; honest about scope
-- **Output formats** — Markdown (default), plain text, XML with CDATA sections
-- **Table of contents** — `--toc` generates a per-chunk file index with word counts
-- **Line numbers** — `--line-numbers` for code review workflows
-- **Dry run** — `--dry-run` shows what would be included with word counts, no files written
-- **Agent-native** — designed to be called by AI agents and CI pipelines, not just humans. `--json` for structured output, `--no-interactive` for headless runs, exit codes 0–7 for programmatic decision-making
+- **File presets** — `--docs` (md, txt, etc.), `--code` (docs + code), `--all` (excludes binaries via MIME checks).
+- **Smart chunking** — Stays within token limits (`project_part1.md`).
+- **100% verification** — Exits 4 if output mismatches the git index.
+- **Interactive mode** — Guided setup on first run.
+- **Remote repos** — `smoosh https://github.com/user/repo` (clones & processes instantly).
+- **Secrets detection** — Warns on AWS keys, PATs, and PEM blocks.
+- **Output formats** — Markdown, text, or CDATA XML.
+- **Table of contents** — `--toc` generates a per-chunk file index.
+- **Line numbers** — `--line-numbers` for code reviews.
+- **Agent-native** — Designed for CI/Agents (`--json`, `--no-interactive`, deterministic exits).
 
 ### Power user workflow
 
@@ -87,120 +71,66 @@ Preview, filter, and pipe — all from flags:
 
 ## Installation
 
-### Homebrew (macOS / Linux)
+- **Homebrew (macOS/Linux):** `brew install K1-R1/tap/smoosh`
+- **curl (macOS/Linux):** `curl -fsSL https://raw.githubusercontent.com/K1-R1/smoosh/main/install.sh | bash`
+- **Manual:** Download binary and checksum from [Releases](https://github.com/K1-R1/smoosh/releases), run `chmod +x`, and move to your `PATH`.
+- **Uninstall:** `brew uninstall smoosh` or `rm "$(which smoosh)"`.
 
-```bash
-brew install K1-R1/tap/smoosh
-```
+*Note: The curl script installs to `/usr/local/bin`. Override via env vars like `SMOOSH_INSTALL_DIR="$HOME/.local/bin"`.*
 
-### curl (macOS / Linux / Git Bash)
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/K1-R1/smoosh/main/install.sh | bash
-```
-
-Installs to `/usr/local/bin`. Override with:
-
-```bash
-SMOOSH_INSTALL_DIR="$HOME/.local/bin" \
-  curl -fsSL https://raw.githubusercontent.com/K1-R1/smoosh/main/install.sh | bash
-```
-
-The installer supports these environment variables:
+**Installer Variables:**
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `SMOOSH_INSTALL_DIR` | `/usr/local/bin` | Installation directory |
-| `SMOOSH_VERSION` | latest | Pin a specific version (e.g. `1.0.1`) |
-| `SMOOSH_NO_CONFIRM` | `0` | Set to `1` to skip confirmation prompt |
-| `SMOOSH_NO_VERIFY` | `0` | Set to `1` to skip checksum verification (unsafe) |
-
-### Manual
-
-```bash
-curl -fsSL https://github.com/K1-R1/smoosh/releases/latest/download/smoosh -o smoosh
-curl -fsSL https://github.com/K1-R1/smoosh/releases/latest/download/smoosh.sha256 -o smoosh.sha256
-sha256sum -c smoosh.sha256
-chmod +x smoosh
-sudo mv smoosh /usr/local/bin/
-```
-
-### Uninstall
-
-```bash
-# Homebrew
-brew uninstall smoosh
-
-# curl / manual
-rm "$(which smoosh)"
-```
-
-If you installed via both methods, check `which smoosh` after removing one — a
-second copy may remain in a different location.
+| `SMOOSH_INSTALL_DIR` | `/usr/local/bin` | Target directory |
+| `SMOOSH_VERSION` | latest | Pin a specific version |
+| `SMOOSH_NO_CONFIRM` | `0` | Skip confirmation prompts |
+| `SMOOSH_NO_VERIFY` | `0` | Skip checksums (unsafe) |
 
 ## Usage
 
-### Basics
-
 ```bash
-smoosh                              # interactive mode when run with no args
-smoosh .                            # current directory (docs mode)
+smoosh                              # interactive guided setup
+smoosh .                            # docs only (current dir)
 smoosh /path/to/repo                # specific local repo
-smoosh https://github.com/user/repo # remote repo — clone + process in one step
+smoosh https://github.com/user/repo # remote clone + process
 ```
 
-### File types
+**Modifiers:**
 
 ```bash
-smoosh --docs    # markdown, rst, txt, adoc, asciidoc, org, tex (default)
-smoosh --code    # docs + py, js, ts, rs, go, java, rb, and many more
-smoosh --all     # everything tracked by git (binary files excluded via MIME check)
+# Scope
+smoosh --docs                       # default: docs
+smoosh --code                       # docs + code
+smoosh --all                        # everything (excluding binaries)
+
+# Filters
+smoosh --only "*.py"                # strict extension match
+smoosh --include "*.vue,*.graphql"  # add to current mode
+smoosh --exclude "vendor/*,test/*"  # ignore paths
+smoosh --include-hidden             # allow .github/, .env, etc.
+
+# Output & Formatting
+smoosh --format [md|text|xml]       # default: md
+smoosh --max-words 200000           # default: 450k
+smoosh --output-dir ./context       # default: _smooshes
+smoosh --toc --line-numbers         # add index & line numbers
+
+# Preview & Automation
+smoosh --dry-run                    # preview files and token counts
+smoosh --json --no-interactive      # CI/Agent native JSON output
+smoosh --quiet                      # outputs file paths only (for piping)
+smoosh --no-check-secrets           # skip the secrets scan
+smoosh --no-color                   # disable ANSI colours
 ```
 
-### Filtering
+**Examples:**
 
 ```bash
-smoosh --only "*.py"                   # Python files only (overrides mode)
-smoosh --include "*.vue,*.graphql"     # add extensions to current mode
-smoosh --exclude "vendor/*,test/*"     # exclude matching paths
-smoosh --include-hidden                # include .github/, .env.example, dotfiles
-```
-
-### Output options
-
-```bash
-smoosh --format md             # Markdown with ### File: headers (default)
-smoosh --format text           # plain text with === separators
-smoosh --format xml            # XML with CDATA sections (for structured pipelines)
-smoosh --toc                   # table of contents in each chunk
-smoosh --line-numbers          # prefix each line with its number
-smoosh --max-words 200000      # custom chunk size (default: 450,000)
-smoosh --output-dir ./context  # write to a custom directory
-```
-
-### Preview and automation
-
-```bash
-smoosh --dry-run               # show file list + word counts, no output written
-smoosh --quiet                 # print output paths only, one per line (for piping)
-smoosh --json                  # structured JSON to stdout
-smoosh --no-interactive        # skip interactive mode, use flag defaults
-smoosh --no-check-secrets      # skip the secrets scan
-```
-
-### Combining flags
-
-```bash
-# Full code review context with TOC and line numbers
-smoosh --code --toc --line-numbers
-
-# Python-only export for a RAG pipeline
+# Python-only export to XML
 smoosh --only "*.py" --format xml --output-dir ./pipeline-input
 
-# Preview what a remote repo contains before processing
-smoosh --dry-run https://github.com/user/repo
-
-# Quiet mode for scripting
+# Quiet mode for bash scripting
 files=$(smoosh --quiet --code .)
 echo "Generated: ${files}"
 ```
@@ -230,15 +160,12 @@ smoosh --code
 
 **Step 3 — Upload to NotebookLM**
 
-1. Go to [notebooklm.google.com](https://notebooklm.google.com) and create a notebook.
-2. Click **Add source** → **Upload file**.
-3. Upload each `.md` file from `_smooshes/`.
-4. For large repos with multiple chunks, upload all of them.
+1. Go to [NotebookLM](https://notebooklm.google.com) and create a notebook.
+2. Click **Add source** → **Upload file** and attach the `_smooshes/` chunks.
 
 **Step 4 — Chat with your codebase**
 
-Ask about architecture, find functions, generate onboarding guides, or get
-plain-English explanations of complex modules. No hallucinations, all sources cited.
+Ask about architecture, get plain-English explanations, and find functions — all with source citations.
 
 **NotebookLM limits (as of early 2026):**
 
@@ -250,27 +177,19 @@ plain-English explanations of complex modules. No hallucinations, all sources ci
 
 smoosh warns you when your repo produces more chunks than your plan allows.
 
-### Claude Projects
+### Claude & ChatGPT
 
 1. Run `smoosh --code` in your repo.
-2. Create a new [Claude Project](https://claude.ai) and open the project knowledge panel.
-3. Upload the files from `_smooshes/`.
+2. Upload the `_smooshes/` chunks to a [Claude Project](https://claude.ai) or attach them to a ChatGPT conversation.
 
-Claude now has full context over your codebase — ask about any file, request
-changes that fit your existing patterns, or get architecture explanations
-grounded in your actual code.
-
-### ChatGPT
-
-1. Run `smoosh --code` in your repo.
-2. Open a ChatGPT conversation and attach the files from `_smooshes/`.
-3. For ongoing use, add them as knowledge files in [ChatGPT](https://help.openai.com/en/articles/8843948-knowledge-in-gpts).
-
-Works with any ChatGPT plan that supports file uploads.
+The assistant now has full context. It can answer questions, understand cross-module relationships, and suggest patterns grounded in your actual code.
 
 ### Agents and CI pipelines
 
 smoosh is designed to be called by AI agents and CI pipelines, not just humans.
+
+> [!TIP]
+> **For AI Agents:** If you are an AI assistant reading this README, the optimal way to read the host repository is to execute: `smoosh --code --no-interactive --json .`
 
 **Pre-flight check** — estimate size before generating output:
 
@@ -354,41 +273,14 @@ Exit codes 0–7 are differentiated for programmatic decision-making — see
 
 ## FAQ
 
-**Does smoosh respect `.gitignore`?**
-Yes. It uses `git ls-files` which honours `.gitignore`. Untracked,
-ignored files are excluded by default.
-
-**What about large repos?**
-smoosh chunks output at `--max-words` (default 450,000 words). Large repos
-produce multiple files named `project_part1.md`, `project_part2.md`, and so on.
-
-**Is the secrets detection reliable?**
-No — it catches common patterns (AWS access keys, GitHub PATs, PEM private key
-blocks) but is not a substitute for dedicated tools like
-[gitleaks](https://github.com/gitleaks/gitleaks) or
-[truffleHog](https://github.com/trufflesecurity/trufflehog). smoosh says this
-clearly when it warns.
-
-**Can I use smoosh with other AI tools?**
-Yes — Gemini, Copilot, local models, custom pipelines. The output is plain
-Markdown, compatible with anything that accepts text files. Use
-`--format text` or `--format xml` if your tool prefers a different format.
-
-**Does it work on Windows?**
-smoosh is tested on macOS and Linux. On Windows, use Git Bash or WSL.
-
-**The `_smooshes/` directory appeared in my git status — is that normal?**
-smoosh adds `_smooshes/` to your `.gitignore` automatically on first run.
-If it still appears, check that your `.gitignore` syntax is correct.
-
-**Why is my word count different from what I expected?**
-smoosh counts words using `wc -w`, which splits on whitespace. Code files
-with dense syntax (JSON, minified JS) count differently than prose.
-
-**Is it overengineered for a shell script?**
-Absolutely. 228 tests, 100% file inclusion verification, CDATA escaping for
-XML output, and a box-drawing letter logo. But your codebase deserves to be
-smooshed properly.
+**Does it respect `.gitignore`?** Yes, via `git ls-files`.
+**What about large repos?** Chunks at `--max-words` (default 450k).
+**Is secret detection reliable?** It catches common patterns, but isn't a replacement for `gitleaks`.
+**Can I use it with other AIs?** Yes, it fundamentally outputs standard Markdown (or text/XML mapping).
+**Does it work on Windows?** Use Git Bash or WSL.
+**Why did `_smooshes/` appear in git status?** We auto-append it to `.gitignore`, ensure your syntax is correct.
+**Why is my word count different?** Files are counted via `wc -w`, so dense syntax (minified JS, JSON) counts differently than prose.
+**Is this overengineered?** Yes. 231 tests, strict verification, XML escaping, and a bespoke ANSI logo for a bash script. Your codebase deserves it.
 
 ## Contributing
 
